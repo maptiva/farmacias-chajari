@@ -232,7 +232,14 @@
                 dutyText = '<div class="text-orange-500 font-bold text-xs mt-1">DE REFUERZO</div>';
                 titleColor = 'text-orange-500';
             }
-            marker.bindPopup(`<div class="font-bold ${titleColor}">${pharmacy.nombre}</div><div class="text-sm">${pharmacy.direccion || ''}</div>${dutyText}`);
+            marker.bindPopup(`
+                <div class="font-bold ${titleColor}">
+                    ${pharmacy.categoria ? `<span class="text-sm font-normal text-gray-500">${pharmacy.categoria}: </span>` : ''}
+                    ${pharmacy.nombre}
+                </div>
+                <div class="text-sm">${pharmacy.direccion || ''}</div>
+                ${dutyText}
+            `);
 
             marker.on('click', () => {
                 const card = document.getElementById(`pharmacy-${pharmacy.id}`);
@@ -267,7 +274,10 @@
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
-                        <h3 class="font-bold ${titleColor}">${pharmacy.nombre}${badgeHtml}</h3>
+                        <h3 class="font-bold ${titleColor}">
+                            ${pharmacy.categoria ? `<span class="text-sm font-normal text-gray-500">${pharmacy.categoria}: </span>` : ''}
+                            ${pharmacy.nombre}${badgeHtml}
+                        </h3>
                         <p class="text-sm text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-blue-400 mr-1"></i>${pharmacy.direccion || 'N/A'}</p>
                         <p class="text-sm text-gray-600"><i class="fas fa-phone text-blue-400 mr-1"></i>${pharmacy.telefono || 'N/A'}</p>
                     </div>
