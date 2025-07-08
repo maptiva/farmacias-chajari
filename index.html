@@ -10,7 +10,8 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
         #map {
-            height: 100vh;
+            height: 100%;
+            width: 100%;
             z-index: 1;
         }
         .sidebar {
@@ -20,29 +21,27 @@
             transform: translateY(-2px);
             box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
         }
-        /* Turno Principal */
         .on-duty {
-            border-left: 4px solid #ef4444; /* Rojo */
-            background-color: #fef2f2; /* Rojo claro */
+            border-left: 4px solid #ef4444;
+            background-color: #fef2f2;
         }
-        /* Turno Refuerzo */
         .on-reinforcement {
-            border-left: 4px solid #f97316; /* Naranja */
-            background-color: #fff7ed; /* Naranja claro */
+            border-left: 4px solid #f97316;
+            background-color: #fff7ed;
         }
         .custom-icon {
-            background: #3b82f6; /* Azul */
+            background: #3b82f6;
             border-radius: 50%;
             border: 2px solid white;
         }
-        .duty-icon { /* Principal */
-            background: #ef4444; /* Rojo */
+        .duty-icon {
+            background: #ef4444;
             border-radius: 50%;
             border: 2px solid white;
             animation: pulse 1.5s infinite;
         }
-        .reinforcement-icon { /* Refuerzo */
-            background: #f97316; /* Naranja */
+        .reinforcement-icon {
+            background: #f97316;
             border-radius: 50%;
             border: 2px solid white;
         }
@@ -54,21 +53,23 @@
         @media (max-width: 768px) {
             .sidebar {
                 width: 100% !important;
-                height: 40vh !important;
-                overflow-y: auto;
+                height: 40vh !important; /* Altura fija para el panel en móvil */
+                flex-shrink: 0;
+            }
+            .map-wrapper {
+                /* Se elimina la altura fija (height: 60vh) para que flex-1 funcione */
+                /* Ahora ocupará el espacio restante (100vh - 40vh = 60vh) */
+                /* Y se expandirá al 100% cuando el sidebar se oculte */
+                padding: 0;
             }
             #map {
-                height: 60vh !important;
-                position: relative;
-            }
-            .mobile-hidden {
-                display: none;
+                border-radius: 0;
             }
         }
     </style>
 </head>
-<body class="font-sans bg-gray-50 overflow-hidden h-screen">
-    <div class="flex flex-col md:flex-row h-full">
+<body class="font-sans bg-gray-50 overflow-hidden">
+    <div id="main-container" class="flex flex-col md:flex-row">
         <!-- Sidebar -->
         <div class="sidebar w-full md:w-96 bg-white shadow-lg z-10 flex flex-col">
             <!-- Header Fijo -->
@@ -93,26 +94,30 @@
             <div class="overflow-y-auto flex-grow">
                 <div class="p-4">
                     <div id="duty-header" class="mb-4">
-                        <!-- Este contenido se generará dinámicamente -->
+                        <!-- Contenido dinámico -->
                     </div>
-                    
                     <div id="pharmacyList" class="space-y-3">
-                        <!-- Las farmacias se cargarán aquí dinámicamente -->
+                        <!-- Contenido dinámico -->
                     </div>
                 </div>
             </div>
+            
+            <!-- Pie de página -->
+            <div class="text-center text-xs text-gray-500 p-4 border-t">
+                Desarrollado por <span class="font-semibold text-blue-600">Maptiva</span>
+            </div>
         </div>
         
-        <!-- Map -->
-        <div id="map" class="flex-1"></div>
+        <!-- Contenedor del Mapa -->
+        <div class="map-wrapper flex-1 p-0 md:p-4">
+            <div id="map" class="shadow-md rounded-none md:rounded-lg"></div>
+        </div>
     </div>
 
 <script type="module">
-    // 1. Importaciones de Firebase (Firestore)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
 
-    // 2. Configuración de Firebase
     const firebaseConfig = {
         apiKey: "AIzaSyC62b1ItiE0IzYKc8Y3tDIT5EXa0abUH0c",
         authDomain: "farmacias-chajari.firebaseapp.com",
@@ -122,14 +127,13 @@
         appId: "1:480200517460:web:4cc22cd97a7b292e200ac1"
     };
 
-    // 3. Inicialización de Firebase y Firestore
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
-    // --- Lógica de la Aplicación ---
     document.addEventListener('DOMContentLoaded', function() {
         let allPharmacies = [];
         const pharmacyList = document.getElementById('pharmacyList');
+        ajustarAltura(); // <--- AÑADE ESTA LÍNEA AQUÍ
         const map = L.map('map').setView([-30.7600, -57.9830], 14);
         const markers = L.layerGroup().addTo(map);
 
@@ -137,26 +141,30 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        // Función para obtener la fecha de hoy en formato YYYY-MM-DD
+        function ajustarAltura() {
+            const mainContainer = document.getElementById('main-container');
+            if (mainContainer) {
+                mainContainer.style.height = `${window.innerHeight}px`;
+            }
+        }
+
         function getTodayDateString() {
             const today = new Date();
             const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0'); // Enero es 0
+            const month = String(today.getMonth() + 1).padStart(2, '0');
             const day = String(today.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         }
 
         async function cargarFarmacias() {
             const todayString = getTodayDateString();
-            console.log(`Buscando turnos para hoy: ${todayString}`);
-
             try {
                 const querySnapshot = await getDocs(collection(db, "farmacias"));
                 allPharmacies = [];
                 querySnapshot.forEach((doc) => {
                     const farmacia = doc.data();
                     farmacia.id = doc.id;
-                    farmacia.dutyType = null; // 'principal', 'refuerzo', or null
+                    farmacia.dutyType = null;
                     if (farmacia.turnos && Array.isArray(farmacia.turnos)) {
                         const turnoDeHoy = farmacia.turnos.find(t => t.fecha === todayString);
                         if (turnoDeHoy) {
@@ -175,12 +183,9 @@
         function renderPharmacies(pharmacies) {
             pharmacyList.innerHTML = '';
             markers.clearLayers();
-            
             const dutyOrder = { 'principal': 2, 'refuerzo': 1, 'null': 0 };
             pharmacies.sort((a, b) => (dutyOrder[b.dutyType] || 0) - (dutyOrder[a.dutyType] || 0));
-
             updateDutyHeader(pharmacies.filter(p => p.dutyType));
-
             pharmacies.forEach(pharmacy => {
                 if (pharmacy.coordenadas && typeof pharmacy.coordenadas.latitude === 'number') {
                     createMarker(pharmacy);
@@ -200,7 +205,6 @@
             let headerHtml = '';
             const principal = dutyPharmacies.find(p => p.dutyType === 'principal');
             const refuerzos = dutyPharmacies.filter(p => p.dutyType === 'refuerzo');
-
             if(principal) {
                 headerHtml += '<div class="flex items-center mb-2"><div class="w-3 h-3 rounded-full bg-red-500 mr-2 animate-pulse"></div><span class="text-sm font-medium">Farmacia de Turno</span></div>';
             }
@@ -212,22 +216,17 @@
 
         function generarBotonesDeAccion(farmacia) {
             let botonesHtml = '<div class="mt-2 flex space-x-2">';
-
-            // Botón de Llamar
             if (farmacia.telefono) {
                 botonesHtml += `<button onclick="window.location.href='tel:${farmacia.telefono}'" class="inline-flex items-center px-3 py-1 bg-blue-500 text-white text-xs font-semibold rounded-full hover:bg-blue-600 transition-colors"><i class="fas fa-phone mr-2"></i>Llamar</button>`;
             } else {
                 botonesHtml += `<span class="inline-flex items-center px-3 py-1 bg-gray-300 text-gray-500 text-xs font-semibold rounded-full cursor-not-allowed"><i class="fas fa-phone-slash mr-2"></i>No disponible</span>`;
             }
-
-            // Botón de WhatsApp
             if (farmacia.whatsapp) {
                 const whatsappNumber = farmacia.whatsapp.replace(/\s|-/g, '');
                 botonesHtml += `<button onclick="window.open('https://wa.me/${whatsappNumber}', '_blank')" class="inline-flex items-center px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full hover:bg-green-600 transition-colors"><i class="fab fa-whatsapp mr-2"></i>WhatsApp</button>`;
             } else {
                 botonesHtml += `<span class="inline-flex items-center px-3 py-1 bg-gray-300 text-gray-500 text-xs font-semibold rounded-full cursor-not-allowed"><i class="fas fa-comment-slash mr-2"></i>No disponible</span>`;
             }
-
             botonesHtml += '</div>';
             return botonesHtml;
         }
@@ -235,7 +234,6 @@
         function createMarker(pharmacy) {
             const { latitude, longitude } = pharmacy.coordenadas;
             const iconHtml = '<i class="fas fa-plus text-white text-xs absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>';
-            
             let icon;
             if (pharmacy.dutyType === 'principal') {
                 icon = L.divIcon({ className: 'duty-icon', html: iconHtml, iconSize: [30, 30] });
@@ -244,9 +242,7 @@
             } else {
                 icon = L.divIcon({ className: 'custom-icon', html: iconHtml, iconSize: [24, 24] });
             }
-
             const marker = L.marker([latitude, longitude], { icon }).addTo(markers);
-            
             let dutyText = '', titleColor = 'text-blue-500';
             if (pharmacy.dutyType === 'principal') {
                 dutyText = '<div class="text-red-500 font-bold text-xs mt-1">DE TURNO</div>';
@@ -264,7 +260,6 @@
                 ${dutyText}
                 ${generarBotonesDeAccion(pharmacy)}
             `);
-
             marker.on('click', () => {
                 const card = document.getElementById(`pharmacy-${pharmacy.id}`);
                 if (card) {
@@ -279,11 +274,9 @@
         function createPharmacyCard(pharmacy) {
             const card = document.createElement('div');
             card.id = `pharmacy-${pharmacy.id}`;
-            
             let cardClass = 'pharmacy-card p-3 rounded-lg border border-gray-200 cursor-pointer transition-all';
             let titleColor = 'text-gray-800';
             let badgeHtml = '';
-
             if (pharmacy.dutyType === 'principal') {
                 cardClass += ' on-duty';
                 titleColor = 'text-red-600';
@@ -294,7 +287,6 @@
                 badgeHtml = '<span class="ml-2 text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full font-semibold">DE REFUERZO</span>';
             }
             card.className = cardClass;
-            
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
@@ -308,7 +300,6 @@
                     </div>
                 </div>
             `;
-
             card.addEventListener('click', () => {
                 const { latitude, longitude } = pharmacy.coordenadas;
                 map.setView([latitude, longitude], 17);
@@ -330,10 +321,13 @@
 
         document.getElementById('toggleSidebar').addEventListener('click', () => {
             document.querySelector('.sidebar').classList.toggle('hidden');
-            setTimeout(function() { 
-                map.invalidateSize()
-            }, 400);
+            setTimeout(() => {
+                map.invalidateSize();
+            }, 350);
         });
+
+        ajustarAltura();
+        window.addEventListener('resize', ajustarAltura);
 
         cargarFarmacias();
     });
