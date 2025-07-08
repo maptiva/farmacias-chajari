@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Farmacias de Turno en Chajarí</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        #map {
+            height: 100vh;
+            z-index: 1;
+        }
+        .sidebar {
+            transition: all 0.3s ease;
+        }
+        .pharmacy-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
+        }
+        /* Turno Principal */
+        .on-duty {
+            border-left: 4px solid #ef4444; /* Rojo */
+            background-color: #fef2f2; /* Rojo claro */
+        }
+        /* Turno Refuerzo */
+        .on-reinforcement {
+            border-left: 4px solid #f97316; /* Naranja */
+            background-color: #fff7ed; /* Naranja claro */
+        }
+        .custom-icon {
+            background: #3b82f6; /* Azul */
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        .duty-icon { /* Principal */
+            background: #ef4444; /* Rojo */
+            border-radius: 50%;
+            border: 2px solid white;
+            animation: pulse 1.5s infinite;
+        }
+        .reinforcement-icon { /* Refuerzo */
+            background: #f97316; /* Naranja */
+            border-radius: 50%;
+            border: 2px solid white;
+        }
+        @keyframes pulse {
+            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
+            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+        }
+        @media (max-width: 768px) {
+            .sidebar {
+                width: 100% !important;
+                height: 40vh !important;
+                overflow-y: auto;
+            }
+            #map {
+                height: 60vh !important;
+            }
+            .mobile-hidden {
+                display: none;
+            }
+        }
+    </style>
+</head>
+<body class="font-sans bg-gray-50 overflow-hidden h-screen">
+    <div class="flex flex-col md:flex-row h-full">
+        <!-- Sidebar -->
+        <div class="sidebar w-full md:w-96 bg-white shadow-lg z-10 flex flex-col">
+            <!-- Header Fijo -->
+            <div class="p-4 bg-blue-600 text-white sticky top-0 z-20 flex-shrink-0">
+                <div class="flex justify-between items-center">
+                    <h1 class="text-xl font-bold">
+                        <i class="fas fa-prescription-bottle-alt mr-2"></i>
+                        Farmacias Chajarí
+                    </h1>
+                    <button id="toggleSidebar" class="md:hidden text-white">
+                        <i class="fas fa-bars"></i>
+                    </button>
+                </div>
+                <div class="mt-2 relative">
+                    <input type="text" id="searchInput" placeholder="Buscar farmacia..." 
+                           class="w-full p-2 rounded text-gray-800 focus:outline-none">
+                    <i class="fas fa-search absolute right-3 top-3 text-gray-500"></i>
+                </div>
+            </div>
+            
+            <!-- Lista con Scroll -->
+            <div class="overflow-y-auto flex-grow">
+                <div class="p-4">
+                    <div id="duty-header" class="mb-4">
+                        <!-- Este contenido se generará dinámicamente -->
+                    </div>
+                    
+                    <div id="pharmacyList" class="space-y-3">
+                        <!-- Las farmacias se cargarán aquí dinámicamente -->
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Map -->
+        <div id="map" class="flex-1"></div>
+    </div>
+
+<script type="module">
+    // 1. Importaciones de Firebase (Firestore)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
+    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // 2. Configuración de Firebase
+    const firebaseConfig = {
+        apiKey: "AIzaSyC62b1ItiE0IzYKc8Y3tDIT5EXa0abUH0c",
+        authDomain: "farmacias-chajari.firebaseapp.com",
+        projectId: "farmacias-chajari",
+        storageBucket: "farmacias-chajari.appspot.com",
+        messagingSenderId: "480200517460",
+        appId: "1:480200517460:web:4cc22cd97a7b292e200ac1"
+    };
+
+    // 3. Inicialización de Firebase y Firestore
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    // --- Lógica de la Aplicación ---
+    document.addEventListener('DOMContentLoaded', function() {
+        let allPharmacies = [];
+        const pharmacyList = document.getElementById('pharmacyList');
+        const map = L.map('map').setView([-30.7600, -57.9830], 15);
+        const markers = L.layerGroup().addTo(map);
+
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+        }).addTo(map);
+
+        // Función para obtener la fecha de hoy en formato YYYY-MM-DD
+        function getTodayDateString() {
+            const today = new Date();
+            const year = today.getFullYear();
+            const month = String(today.getMonth() + 1).padStart(2, '0'); // Enero es 0
+            const day = String(today.getDate()).padStart(2, '0');
+            return `${year}-${month}-${day}`;
+        }
+
+        async function cargarFarmacias() {
+            const todayString = getTodayDateString();
+            console.log(`Buscando turnos para hoy: ${todayString}`);
+
+            try {
+                const querySnapshot = await getDocs(collection(db, "farmacias"));
+                allPharmacies = [];
+                querySnapshot.forEach((doc) => {
+                    const farmacia = doc.data();
+                    farmacia.id = doc.id;
+                    farmacia.dutyType = null; // 'principal', 'refuerzo', or null
+                    if (farmacia.turnos && Array.isArray(farmacia.turnos)) {
+                        const turnoDeHoy = farmacia.turnos.find(t => t.fecha === todayString);
+                        if (turnoDeHoy) {
+                            farmacia.dutyType = turnoDeHoy.tipo;
+                        }
+                    }
+                    allPharmacies.push(farmacia);
+                });
+                renderPharmacies(allPharmacies);
+            } catch (error) {
+                console.error("Error al cargar datos de Firestore:", error);
+                pharmacyList.innerHTML = '<p class="text-red-500">Error al cargar las farmacias.</p>';
+            }
+        }
+
+        function renderPharmacies(pharmacies) {
+            pharmacyList.innerHTML = '';
+            markers.clearLayers();
+            
+            const dutyOrder = { 'principal': 2, 'refuerzo': 1, 'null': 0 };
+            pharmacies.sort((a, b) => (dutyOrder[b.dutyType] || 0) - (dutyOrder[a.dutyType] || 0));
+
+            updateDutyHeader(pharmacies.filter(p => p.dutyType));
+
+            pharmacies.forEach(pharmacy => {
+                if (pharmacy.coordenadas && typeof pharmacy.coordenadas.latitude === 'number') {
+                    createMarker(pharmacy);
+                    pharmacyList.appendChild(createPharmacyCard(pharmacy));
+                } else {
+                    console.warn('Omitiendo farmacia sin coordenadas válidas:', pharmacy.nombre);
+                }
+            });
+        }
+        
+        function updateDutyHeader(dutyPharmacies) {
+            const dutyHeader = document.getElementById('duty-header');
+            if (dutyPharmacies.length === 0) {
+                dutyHeader.innerHTML = '<p class="text-center text-gray-500">No hay farmacias de turno hoy.</p>';
+                return;
+            }
+            let headerHtml = '';
+            const principal = dutyPharmacies.find(p => p.dutyType === 'principal');
+            const refuerzos = dutyPharmacies.filter(p => p.dutyType === 'refuerzo');
+
+            if(principal) {
+                headerHtml += '<div class="flex items-center mb-2"><div class="w-3 h-3 rounded-full bg-red-500 mr-2 animate-pulse"></div><span class="text-sm font-medium">Farmacia de Turno</span></div>';
+            }
+            if(refuerzos.length > 0) {
+                headerHtml += '<div class="flex items-center mt-3 mb-2"><div class="w-3 h-3 rounded-full bg-orange-500 mr-2"></div><span class="text-sm font-medium">Farmacia de Refuerzo</span></div>';
+            }
+            dutyHeader.innerHTML = headerHtml;
+        }
+
+        function createMarker(pharmacy) {
+            const { latitude, longitude } = pharmacy.coordenadas;
+            const iconHtml = '<i class="fas fa-plus text-white text-xs absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>';
+            
+            let icon;
+            if (pharmacy.dutyType === 'principal') {
+                icon = L.divIcon({ className: 'duty-icon', html: iconHtml, iconSize: [30, 30] });
+            } else if (pharmacy.dutyType === 'refuerzo') {
+                icon = L.divIcon({ className: 'reinforcement-icon', html: iconHtml, iconSize: [28, 28] });
+            } else {
+                icon = L.divIcon({ className: 'custom-icon', html: iconHtml, iconSize: [24, 24] });
+            }
+
+            const marker = L.marker([latitude, longitude], { icon }).addTo(markers);
+            
+            let dutyText = '', titleColor = 'text-blue-500';
+            if (pharmacy.dutyType === 'principal') {
+                dutyText = '<div class="text-red-500 font-bold text-xs mt-1">DE TURNO</div>';
+                titleColor = 'text-red-500';
+            } else if (pharmacy.dutyType === 'refuerzo') {
+                dutyText = '<div class="text-orange-500 font-bold text-xs mt-1">DE REFUERZO</div>';
+                titleColor = 'text-orange-500';
+            }
+            marker.bindPopup(`<div class="font-bold ${titleColor}">${pharmacy.nombre}</div><div class="text-sm">${pharmacy.direccion || ''}</div>${dutyText}`);
+
+            marker.on('click', () => {
+                const card = document.getElementById(`pharmacy-${pharmacy.id}`);
+                if (card) {
+                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    card.classList.add('bg-blue-100');
+                    setTimeout(() => card.classList.remove('bg-blue-100'), 1500);
+                }
+            });
+            return marker;
+        }
+
+        function createPharmacyCard(pharmacy) {
+            const card = document.createElement('div');
+            card.id = `pharmacy-${pharmacy.id}`;
+            
+            let cardClass = 'pharmacy-card p-3 rounded-lg border border-gray-200 cursor-pointer transition-all';
+            let titleColor = 'text-gray-800';
+            let badgeHtml = '';
+
+            if (pharmacy.dutyType === 'principal') {
+                cardClass += ' on-duty';
+                titleColor = 'text-red-600';
+                badgeHtml = '<span class="ml-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-semibold">DE TURNO</span>';
+            } else if (pharmacy.dutyType === 'refuerzo') {
+                cardClass += ' on-reinforcement';
+                titleColor = 'text-orange-600';
+                badgeHtml = '<span class="ml-2 text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full font-semibold">DE REFUERZO</span>';
+            }
+            card.className = cardClass;
+            
+            card.innerHTML = `
+                <div class="flex justify-between items-start">
+                    <div>
+                        <h3 class="font-bold ${titleColor}">${pharmacy.nombre}${badgeHtml}</h3>
+                        <p class="text-sm text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-blue-400 mr-1"></i>${pharmacy.direccion || 'N/A'}</p>
+                        <p class="text-sm text-gray-600"><i class="fas fa-phone text-blue-400 mr-1"></i>${pharmacy.telefono || 'N/A'}</p>
+                    </div>
+                </div>
+            `;
+
+            card.addEventListener('click', () => {
+                const { latitude, longitude } = pharmacy.coordenadas;
+                map.setView([latitude, longitude], 17);
+                markers.eachLayer(layer => {
+                    if (layer.getLatLng().lat === latitude && layer.getLatLng().lng === longitude) layer.openPopup();
+                });
+            });
+            return card;
+        }
+
+        document.getElementById('searchInput').addEventListener('input', e => {
+            const searchTerm = e.target.value.toLowerCase();
+            const filtered = allPharmacies.filter(p => 
+                (p.nombre && p.nombre.toLowerCase().includes(searchTerm)) ||
+                (p.direccion && p.direccion.toLowerCase().includes(searchTerm))
+            );
+            renderPharmacies(filtered);
+        });
+
+        document.getElementById('toggleSidebar').addEventListener('click', () => {
+            document.querySelector('.sidebar').classList.toggle('hidden');
+        });
+
+        cargarFarmacias();
+    });
+</script>
+
+</body>
+</html>
