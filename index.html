@@ -59,6 +59,7 @@
             }
             #map {
                 height: 60vh !important;
+                position: relative;
             }
             .mobile-hidden {
                 display: none;
@@ -329,6 +330,9 @@
 
         document.getElementById('toggleSidebar').addEventListener('click', () => {
             document.querySelector('.sidebar').classList.toggle('hidden');
+            setTimeout(function() { 
+                map.invalidateSize()
+            }, 400);
         });
 
         cargarFarmacias();
