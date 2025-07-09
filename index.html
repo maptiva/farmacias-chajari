@@ -15,7 +15,7 @@
             z-index: 1;
         }
         .sidebar {
-            transition: all 0.3s ease;
+            transition: transform 0.4s ease-in-out;
         }
         .pharmacy-card:hover {
             transform: translateY(-2px);
@@ -26,8 +26,8 @@
             background-color: #fef2f2;
         }
         .on-reinforcement {
-            border-left: 4px solid #f97316;
-            background-color: #fff7ed;
+            border-left: 4px solid #22c55e; /* Verde */
+            background-color: #f0fdf4; /* Verde claro */
         }
         .custom-icon {
             background: #3b82f6;
@@ -41,7 +41,7 @@
             animation: pulse 1.5s infinite;
         }
         .reinforcement-icon {
-            background: #f97316;
+            background: #22c55e; /* Verde */
             border-radius: 50%;
             border: 2px solid white;
         }
@@ -52,14 +52,14 @@
         }
         @media (max-width: 768px) {
             .sidebar {
-                width: 100% !important;
-                height: 40vh !important; /* Altura fija para el panel en móvil */
-                flex-shrink: 0;
+                position: absolute;
+                height: 100vh;
+                transform: translateX(0);
+            }
+            .sidebar.is-closed {
+                transform: translateX(-100%);
             }
             .map-wrapper {
-                /* Se elimina la altura fija (height: 60vh) para que flex-1 funcione */
-                /* Ahora ocupará el espacio restante (100vh - 40vh = 60vh) */
-                /* Y se expandirá al 100% cuando el sidebar se oculte */
                 padding: 0;
             }
             #map {
@@ -69,9 +69,9 @@
     </style>
 </head>
 <body class="font-sans bg-gray-50 overflow-hidden">
-    <div id="main-container" class="flex flex-col md:flex-row">
+    <div id="main-container" class="flex flex-col md:flex-row relative">
         <!-- Sidebar -->
-        <div class="sidebar w-full md:w-96 bg-white shadow-lg z-10 flex flex-col">
+        <div class="sidebar w-full md:w-96 bg-white shadow-lg z-20 flex flex-col">
             <!-- Header Fijo -->
             <div class="p-4 bg-blue-600 text-white sticky top-0 z-20 flex-shrink-0">
                 <div class="flex justify-between items-center">
@@ -87,6 +87,22 @@
                     <input type="text" id="searchInput" placeholder="Buscar farmacia..." 
                            class="w-full p-2 rounded text-gray-800 focus:outline-none">
                     <i class="fas fa-search absolute right-3 top-3 text-gray-500"></i>
+                </div>
+                <!-- Sección de Filtros -->
+                <div class="mt-4 p-2 bg-blue-500 rounded-b-lg">
+                    <h3 class="text-lg font-semibold mb-2 text-white">Filtros</h3>
+                    <div class="flex flex-col space-y-2 text-white">
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="filtro-farmacias" value="Farmacia" checked
+                                   class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500">
+                            <span class="ml-2 text-white">Farmacias</span>
+                        </label>
+                        <label class="inline-flex items-center">
+                            <input type="checkbox" id="filtro-ortopedias" value="Ortopedia" checked
+                                   class="form-checkbox h-5 w-5 text-blue-600 rounded focus:ring-blue-500">
+                            <span class="ml-2 text-white">Ortopedias</span>
+                        </label>
+                    </div>
                 </div>
             </div>
             
@@ -104,7 +120,7 @@
             
             <!-- Pie de página -->
             <div class="text-center text-xs text-gray-500 p-4 border-t">
-                Desarrollado por <span class="font-semibold text-blue-600">Maptiva</span>
+                Desarrollado por <a href="maptiva.html" target="_blank" class="font-bold text-blue-600 hover:underline">Maptiva</a>
             </div>
         </div>
         
@@ -133,7 +149,7 @@
     document.addEventListener('DOMContentLoaded', function() {
         let allPharmacies = [];
         const pharmacyList = document.getElementById('pharmacyList');
-        ajustarAltura(); // <--- AÑADE ESTA LÍNEA AQUÍ
+        setFullScreenHeight(); // Added as per user's previous working solution
         const map = L.map('map').setView([-30.7600, -57.9830], 14);
         const markers = L.layerGroup().addTo(map);
 
@@ -141,7 +157,7 @@
             attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
         }).addTo(map);
 
-        function ajustarAltura() {
+        function setFullScreenHeight() {
             const mainContainer = document.getElementById('main-container');
             if (mainContainer) {
                 mainContainer.style.height = `${window.innerHeight}px`;
@@ -173,11 +189,32 @@
                     }
                     allPharmacies.push(farmacia);
                 });
-                renderPharmacies(allPharmacies);
+                actualizarVista(); // Call actualizarVista after loading all pharmacies
             } catch (error) {
                 console.error("Error al cargar datos de Firestore:", error);
                 pharmacyList.innerHTML = '<p class="text-red-500">Error al cargar las farmacias.</p>';
             }
+        }
+
+        function actualizarVista() {
+            const searchTerm = document.getElementById('searchInput').value.toLowerCase();
+            const filterFarmacias = document.getElementById('filtro-farmacias').checked;
+            const filterOrtopedias = document.getElementById('filtro-ortopedias').checked;
+
+            let filteredByCategories = [];
+            if (filterFarmacias) {
+                filteredByCategories = filteredByCategories.concat(allPharmacies.filter(p => p.categoria === 'Farmacia'));
+            }
+            if (filterOrtopedias) {
+                filteredByCategories = filteredByCategories.concat(allPharmacies.filter(p => p.categoria === 'Ortopedia'));
+            }
+
+            let finalFilteredPharmacies = filteredByCategories.filter(p =>
+                (p.nombre && p.nombre.toLowerCase().includes(searchTerm)) ||
+                (p.direccion && p.direccion.toLowerCase().includes(searchTerm))
+            );
+
+            renderPharmacies(finalFilteredPharmacies);
         }
 
         function renderPharmacies(pharmacies) {
@@ -209,7 +246,7 @@
                 headerHtml += '<div class="flex items-center mb-2"><div class="w-3 h-3 rounded-full bg-red-500 mr-2 animate-pulse"></div><span class="text-sm font-medium">Farmacia de Turno</span></div>';
             }
             if(refuerzos.length > 0) {
-                headerHtml += '<div class="flex items-center mt-3 mb-2"><div class="w-3 h-3 rounded-full bg-orange-500 mr-2"></div><span class="text-sm font-medium">Farmacia de Refuerzo</span></div>';
+                headerHtml += '<div class="flex items-center mt-3 mb-2"><div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div><span class="text-sm font-medium">Farmacia de Refuerzo</span></div>';
             }
             dutyHeader.innerHTML = headerHtml;
         }
@@ -248,8 +285,8 @@
                 dutyText = '<div class="text-red-500 font-bold text-xs mt-1">DE TURNO</div>';
                 titleColor = 'text-red-500';
             } else if (pharmacy.dutyType === 'refuerzo') {
-                dutyText = '<div class="text-orange-500 font-bold text-xs mt-1">DE REFUERZO</div>';
-                titleColor = 'text-orange-500';
+                dutyText = '<div class="text-green-600 font-bold text-xs mt-1">DE REFUERZO</div>';
+                titleColor = 'text-green-600';
             }
             marker.bindPopup(`
                 <div class="font-bold ${titleColor}">
@@ -283,8 +320,8 @@
                 badgeHtml = '<span class="ml-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-semibold">DE TURNO</span>';
             } else if (pharmacy.dutyType === 'refuerzo') {
                 cardClass += ' on-reinforcement';
-                titleColor = 'text-orange-600';
-                badgeHtml = '<span class="ml-2 text-xs bg-orange-100 text-orange-600 px-2 py-1 rounded-full font-semibold">DE REFUERZO</span>';
+                titleColor = 'text-green-600';
+                badgeHtml = '<span class="ml-2 text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-semibold">DE REFUERZO</span>';
             }
             card.className = cardClass;
             card.innerHTML = `
@@ -310,24 +347,20 @@
             return card;
         }
 
-        document.getElementById('searchInput').addEventListener('input', e => {
-            const searchTerm = e.target.value.toLowerCase();
-            const filtered = allPharmacies.filter(p => 
-                (p.nombre && p.nombre.toLowerCase().includes(searchTerm)) ||
-                (p.direccion && p.direccion.toLowerCase().includes(searchTerm))
-            );
-            renderPharmacies(filtered);
-        });
+        document.getElementById('searchInput').addEventListener('input', actualizarVista); // Call actualizarVista
+
+        document.getElementById('filtro-farmacias').addEventListener('change', actualizarVista); // New listener
+        document.getElementById('filtro-ortopedias').addEventListener('change', actualizarVista); // New listener
 
         document.getElementById('toggleSidebar').addEventListener('click', () => {
-            document.querySelector('.sidebar').classList.toggle('hidden');
+            document.querySelector('.sidebar').classList.toggle('is-closed');
             setTimeout(() => {
                 map.invalidateSize();
-            }, 350);
+            }, 400); // 400ms para coincidir con la transición de CSS
         });
 
-        ajustarAltura();
-        window.addEventListener('resize', ajustarAltura);
+        setFullScreenHeight();
+        window.addEventListener('resize', setFullScreenHeight);
 
         cargarFarmacias();
     });
