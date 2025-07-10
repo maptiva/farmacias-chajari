@@ -465,11 +465,6 @@
             aboutModal.classList.remove('hidden');
         });
 
-        mobileAboutButton.addEventListener('click', () => {
-            aboutModal.classList.remove('hidden');
-            document.getElementById('mobileMenu').classList.add('hidden');
-        });
-
         closeModalButton.addEventListener('click', () => {
             aboutModal.classList.add('hidden');
         });
@@ -480,29 +475,54 @@
             }
         });
 
-        // Lógica del Menú Móvil
-        const toggleSidebarButton = document.getElementById('toggleSidebar');
+        // --- Refactorización del Control del Menú Móvil ---
+
+        const sidebar = document.querySelector('.sidebar');
         const mobileMenu = document.getElementById('mobileMenu');
+        const toggleSidebarButton = document.getElementById('toggleSidebar');
         const closeMobileMenuButton = document.getElementById('closeMobileMenu');
 
-        toggleSidebarButton.addEventListener('click', () => {
-            const sidebar = document.querySelector('.sidebar');
-            const isSidebarClosed = sidebar.classList.contains('is-closed');
-            
-            if (isSidebarClosed) {
-                sidebar.classList.remove('is-closed');
-                setTimeout(() => {
-                    map.invalidateSize();
-                }, 400);
-            } else {
-                mobileMenu.classList.toggle('hidden');
-                mobileMenu.classList.toggle('is-open');
-            }
-        });
+        // Función para abrir el menú de "Más Información"
+        function abrirMobileMenu() {
+            mobileMenu.classList.remove('hidden');
+            mobileMenu.classList.add('is-open');
+        }
 
-        closeMobileMenuButton.addEventListener('click', () => {
+        // Función para cerrar el menú de "Más Información"
+        function cerrarMobileMenu() {
             mobileMenu.classList.add('hidden');
             mobileMenu.classList.remove('is-open');
+        }
+
+        // Botón "Acerca de" en el menú móvil
+        mobileAboutButton.addEventListener('click', () => {
+            aboutModal.classList.remove('hidden');
+            cerrarMobileMenu(); // Llama a la función centralizada
+        });
+
+        // Botón de cerrar (la 'X') en el menú móvil
+        closeMobileMenuButton.addEventListener('click', () => {
+            cerrarMobileMenu(); // Llama a la función centralizada
+        });
+
+        // Botón principal de hamburguesa
+        toggleSidebarButton.addEventListener('click', () => {
+            // En móvil, este botón tiene doble función:
+            // 1. Si el panel de farmacias está cerrado (`is-closed`), lo abre.
+            // 2. Si el panel de farmacias está abierto, controla el menú "Más Información".
+            const isSidebarPanelClosed = sidebar.classList.contains('is-closed');
+            
+            if (isSidebarPanelClosed) {
+                sidebar.classList.remove('is-closed');
+                setTimeout(() => map.invalidateSize(), 400);
+            } else {
+                // Controla el menú "Más Información" usando las funciones
+                if (mobileMenu.classList.contains('hidden')) {
+                    abrirMobileMenu();
+                } else {
+                    cerrarMobileMenu();
+                }
+            }
         });
 
         setFullScreenHeight();
