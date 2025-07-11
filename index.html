@@ -273,10 +273,21 @@
         }
 
         function getTodayDateString() {
-            const today = new Date();
-            const year = today.getFullYear();
-            const month = String(today.getMonth() + 1).padStart(2, '0');
-            const day = String(today.getDate()).padStart(2, '0');
+            const now = new Date(); // Current date and time
+
+            // Create a Date object for 8:00 AM of the current day
+            const eightAmToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
+
+            let targetDate = new Date(now); // Start with current date
+
+            // If current time is before 8:00 AM today, set targetDate to yesterday
+            if (now.getTime() < eightAmToday.getTime()) { // Use getTime() for reliable comparison
+                targetDate.setDate(now.getDate() - 1);
+            }
+
+            const year = targetDate.getFullYear();
+            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
+            const day = String(targetDate.getDate()).padStart(2, '0');
             return `${year}-${month}-${day}`;
         }
 
@@ -371,7 +382,8 @@
             if (pharmacy.dutyType === 'principal') {
                 dutyText = '<div class="text-red-500 font-bold text-xs mt-1">DE TURNO</div>';
                 titleColor = 'text-red-500';
-            } else if (pharmacy.dutyType === 'refuerzo') {
+            }
+            if (pharmacy.dutyType === 'refuerzo') {
                 dutyText = '<div class="text-green-600 font-bold text-xs mt-1">DE REFUERZO</div>';
                 titleColor = 'text-green-600';
             }
