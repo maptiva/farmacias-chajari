@@ -272,27 +272,29 @@
             }
         }
 
-        function getTodayDateString() {
-            const now = new Date(); // Current date and time
-
-            // Create a Date object for 8:00 AM of the current day
-            const eightAmToday = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 8, 0, 0, 0);
-
-            let targetDate = new Date(now); // Start with current date
-
-            // If current time is before 8:00 AM today, set targetDate to yesterday
-            if (now.getTime() < eightAmToday.getTime()) { // Use getTime() for reliable comparison
-                targetDate.setDate(now.getDate() - 1);
+        function getDutyInfo() {
+            const now = new Date();
+            const hour = now.getHours();
+            
+            // For the main on-duty pharmacy (24 hours, from 8 AM to 8 AM next day)
+            let principalDate = new Date(now);
+            if (hour < 8) {
+                principalDate.setDate(principalDate.getDate() - 1);
             }
+            const principalDateString = `${principalDate.getFullYear()}-${String(principalDate.getMonth() + 1).padStart(2, '0')}-${String(principalDate.getDate()).padStart(2, '0')}`;
 
-            const year = targetDate.getFullYear();
-            const month = String(targetDate.getMonth() + 1).padStart(2, '0');
-            const day = String(targetDate.getDate()).padStart(2, '0');
-            return `${year}-${month}-${day}`;
+            // For the reinforcement pharmacy (today's date)
+            const today = new Date();
+            const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+            
+            // Reinforcement is active only from 8:00 AM to 10:59 PM (23:00)
+            const isReinforcementActive = hour >= 8 && hour < 23;
+
+            return { principalDateString, todayDateString, isReinforcementActive };
         }
 
         async function cargarFarmacias() {
-            const todayString = getTodayDateString();
+            const { principalDateString, todayDateString, isReinforcementActive } = getDutyInfo();
             try {
                 const querySnapshot = await getDocs(collection(db, "farmacias"));
                 allPharmacies = [];
@@ -300,10 +302,25 @@
                     const farmacia = doc.data();
                     farmacia.id = doc.id;
                     farmacia.dutyType = null;
+
                     if (farmacia.turnos && Array.isArray(farmacia.turnos)) {
-                        const turnoDeHoy = farmacia.turnos.find(t => t.fecha === todayString);
-                        if (turnoDeHoy) {
-                            farmacia.dutyType = turnoDeHoy.tipo;
+                        // Check for principal on-duty pharmacy
+                        const turnoPrincipal = farmacia.turnos.find(t => t.fecha === principalDateString && t.tipo === 'principal');
+                        if (turnoPrincipal) {
+                            farmacia.dutyType = 'principal';
+                        }
+
+                        // Check for reinforcement pharmacy, only if it's within the active time window
+                        if (isReinforcementActive) {
+                            const turnoRefuerzo = farmacia.turnos.find(t => t.fecha === todayDateString && t.tipo === 'refuerzo');
+                            if (turnoRefuerzo) {
+                                // A pharmacy can't be both principal and reinforcement, principal takes precedence.
+                                // This logic assumes a pharmacy is either one or the other on a given day.
+                                // If a pharmacy could be both, this would need adjustment.
+                                if (!farmacia.dutyType) {
+                                   farmacia.dutyType = 'refuerzo';
+                                }
+                            }
                         }
                     }
                     allPharmacies.push(farmacia);
@@ -334,17 +351,17 @@
         function updateDutyHeader(dutyPharmacies) {
             const dutyHeader = document.getElementById('duty-header');
             if (dutyPharmacies.length === 0) {
-                dutyHeader.innerHTML = '<p class="text-center text-gray-500">No hay farmacias de turno hoy.</p>';
+                dutyHeader.innerHTML = '<p class="text-center text-gray-500">No hay farmacias de turno en este momento.</p>';
                 return;
             }
             let headerHtml = '';
             const principal = dutyPharmacies.find(p => p.dutyType === 'principal');
             const refuerzos = dutyPharmacies.filter(p => p.dutyType === 'refuerzo');
             if(principal) {
-                headerHtml += '<div class="flex items-center mb-2"><div class="w-3 h-3 rounded-full bg-red-500 mr-2 animate-pulse"></div><span class="text-sm font-medium">Farmacia de Turno</span></div>';
+                headerHtml += '<div class="flex items-center mb-2"><div class="w-3 h-3 rounded-full bg-red-500 mr-2 animate-pulse"></div><span class="text-sm font-medium">Farmacia de Turno <span class="font-normal text-xs text-gray-600">(8:00 a 8:00 hs)</span></span></div>';
             }
             if(refuerzos.length > 0) {
-                headerHtml += '<div class="flex items-center mt-3 mb-2"><div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div><span class="text-sm font-medium">Farmacia de Refuerzo</span></div>';
+                headerHtml += '<div class="flex items-center mt-3 mb-2"><div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div><span class="text-sm font-medium">Farmacia de Refuerzo <span class="font-normal text-xs text-gray-600">(8:00 a 23:00 hs)</span></span></div>';
             }
             dutyHeader.innerHTML = headerHtml;
         }
@@ -391,7 +408,7 @@
                 titleColor = 'text-green-600';
             }
             marker.bindPopup(`
-                <div class="font-bold ${titleColor}">
+                <div class="font-bold text-lg ${titleColor}">
                     ${pharmacy.categoria ? `<span class="text-sm font-normal text-gray-500">${pharmacy.categoria}: </span>` : ''}
                     ${pharmacy.nombre}
                 </div>
