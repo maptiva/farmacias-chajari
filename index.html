@@ -116,6 +116,10 @@
                 transform: translateY(0);
             }
         }
+        .leaflet-popup-content .accion-icono {
+            color: white !important;
+            font-size: 1.1rem; /* Ajusta este valor si es necesario */
+        }
     </style>
 </head>
 <body class="font-sans bg-gray-50 overflow-hidden">
@@ -367,21 +371,30 @@
         }
 
         function generarBotonesDeAccion(farmacia) {
-            let botonesHtml = '<div class="mt-2 flex space-x-2">';
-            if (farmacia.telefono) {
-                botonesHtml += `<button onclick="window.location.href='tel:${farmacia.telefono}'" class="inline-flex items-center px-3 py-1 bg-blue-500 text-white text-xs font-semibold rounded-full hover:bg-blue-600 transition-colors"><i class="fas fa-phone mr-2"></i>Llamar</button>`;
-            } else {
-                botonesHtml += `<span class="inline-flex items-center px-3 py-1 bg-gray-300 text-gray-500 text-xs font-semibold rounded-full cursor-not-allowed"><i class="fas fa-phone-slash mr-2"></i>No disponible</span>`;
-            }
+            let botonesHtml = '<div class="mt-2 flex items-center gap-2">';
+
+            // WhatsApp Button (Green)
             if (farmacia.whatsapp) {
                 const whatsappNumber = farmacia.whatsapp.replace(/\s|-/g, '');
-                botonesHtml += `<button onclick="window.open('https://wa.me/${whatsappNumber}', '_blank')" class="inline-flex items-center px-3 py-1 bg-green-500 text-white text-xs font-semibold rounded-full hover:bg-green-600 transition-colors"><i class="fab fa-whatsapp mr-2"></i>WhatsApp</button>`;
+                botonesHtml += `<a href="https://wa.me/${whatsappNumber}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors" title="Enviar WhatsApp"><i class="fab fa-whatsapp accion-icono"></i></a>`;
             } else {
-                botonesHtml += `<span class="inline-flex items-center px-3 py-1 bg-gray-300 text-gray-500 text-xs font-semibold rounded-full cursor-not-allowed"><i class="fas fa-comment-slash mr-2"></i>No disponible</span>`;
+                botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="WhatsApp no disponible"><i class="fab fa-whatsapp accion-icono"></i></span>`;
             }
+
+            // Phone Button (Blue)
+            if (farmacia.telefono) {
+                botonesHtml += `<a href="tel:${farmacia.telefono}" class="flex items-center justify-center w-8 h-8 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors" title="Llamar"><i class="fas fa-phone accion-icono"></i></a>`;
+            } else {
+                botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="Teléfono no disponible"><i class="fas fa-phone accion-icono"></i></span>`;
+            }
+
+            // Map Button (Red)
             if (farmacia.coordenadas && farmacia.coordenadas.latitude && farmacia.coordenadas.longitude) {
-                botonesHtml += `<a href="https://www.google.com/maps/dir/?api=1&destination=${farmacia.coordenadas.latitude},${farmacia.coordenadas.longitude}" target="_blank" style="color: white;" class="inline-flex items-center px-3 py-1 bg-purple-500 text-white text-xs font-semibold rounded-full hover:bg-purple-600 transition-colors"><i class="fas fa-route mr-2"></i>Cómo Llegar</a>`;
+                botonesHtml += `<a href="https://www.google.com/maps/dir/?api=1&destination=${farmacia.coordenadas.latitude},${farmacia.coordenadas.longitude}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors" title="Cómo llegar"><i class="fas fa-map-marker-alt accion-icono"></i></a>`;
+            } else {
+                 botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="Ubicación no disponible"><i class="fas fa-map-marker-alt accion-icono"></i></span>`;
             }
+
             botonesHtml += '</div>';
             return botonesHtml;
         }
