@@ -1,9 +1,11 @@
 
 const CACHE_NAME = 'farmacias-chajari-cache-v1';
 const urlsToCache = [
-  '/',
-  '/index.html',
-  '/manifest.json',
+  '/farmacias-chajari/',
+  '/farmacias-chajari/index.html',
+  '/farmacias-chajari/manifest.json',
+  '/farmacias-chajari/icons/logo-farm_192.png',
+  '/farmacias-chajari/icons/logo-farm_512.png',
   'https://cdn.tailwindcss.com',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
   'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',

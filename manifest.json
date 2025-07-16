@@ -3,7 +3,7 @@
   "name": "Farmacias de Turno Chajarí",
   "short_name": "Farmacias Chajarí",
   "description": "Encuentra farmacias de turno en Chajarí, Entre Ríos. Horarios, ubicación y contacto.",
-  "start_url": "/index.html",
+  "start_url": "/farmacias-chajari/index.html",
   "display": "standalone",
   "background_color": "#ffffff",
   "theme_color": "#0284c7",
