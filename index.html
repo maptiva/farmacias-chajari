@@ -121,6 +121,10 @@
             color: white !important;
             font-size: 1.1rem; /* Ajusta este valor si es necesario */
         }
+        .leaflet-control-info {
+            background: transparent !important;
+            border: none !important;
+        }
     </style>
 </head>
 <body class="font-sans bg-gray-50 overflow-hidden">
@@ -240,6 +244,14 @@
         <!-- Contenedor del Mapa -->
         <div class="map-wrapper flex-1 p-0 md:p-4">
             <div id="map" class="shadow-md rounded-none md:rounded-lg"></div>
+        </div>
+    </div>
+
+    <!-- Info Modal -->
+    <div id="infoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-lg p-6 shadow-xl max-w-lg w-full relative">
+            <button id="close-info-modal-x" class="absolute top-3 right-3 text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
+            <h2 class="text-2xl font-bold mb-4">¿Cómo funciona el Portal?</h2><h3 class="text-lg font-semibold mt-4">Horarios de Turno</h3><ul class="list-disc list-inside text-gray-700 space-y-1">    <li><strong>Farmacia de Turno:</strong> Atiende las 24 horas, desde las 8:00 AM de un día hasta las 8:00 AM del día siguiente.</li>    <li><strong>Farmacia de Refuerzo:</strong> Brinda apoyo en el horario de mayor demanda, de 8:00 AM a 23:00 PM del mismo día.</li></ul><h3 class="text-lg font-semibold mt-4">Íconos del Mapa</h3><ul class="list-disc list-inside text-gray-700 space-y-1">    <li><span class="inline-block w-4 h-4 rounded-full bg-red-500 mr-2 align-middle"></span>Indica la <strong>Farmacia de Turno</strong> principal.</li>    <li><span class="inline-block w-4 h-4 rounded-full bg-green-500 mr-2 align-middle"></span>Indica la <strong>Farmacia de Refuerzo</strong> activa.</li>    <li><span class="inline-block w-4 h-4 rounded-full bg-blue-500 mr-2 align-middle"></span>Indica las demás farmacias.</li></ul><h3 class="text-lg font-semibold mt-4">Funcionalidades</h3><ul class="list-disc list-inside text-gray-700 space-y-1">    <li><strong>Llamar / WhatsApp:</strong> Haz clic en los botones para contactar directamente a la farmacia.</li>    <li><strong>Cómo Llegar:</strong> Abrirá Google Maps con la ruta desde tu ubicación actual.</li></ul><h3 class="text-lg font-semibold mt-4">Colaboración</h3><p class="text-gray-700">Este es un proyecto colaborativo. Si encuentras un error o tienes una sugerencia, puedes usar la opción "Sugerir un cambio" en el menú "Más Información".</p><div class="text-center mt-6">    <button id="close-info-modal" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Entendido</button></div>
         </div>
     </div>
 
@@ -570,6 +582,62 @@
                 }
             }
         });
+
+        // Lógica del Modal de Información
+        const infoModal = document.getElementById('infoModal');
+        const closeInfoModalButton = document.getElementById('close-info-modal');
+        const closeInfoModalXButton = document.getElementById('close-info-modal-x');
+
+        function showInfoModal() {
+            infoModal.classList.remove('hidden');
+        }
+
+        function hideInfoModal() {
+            infoModal.classList.add('hidden');
+        }
+
+        // Cerrar modal al hacer clic en el botón "Entendido"
+        closeInfoModalButton.addEventListener('click', hideInfoModal);
+
+        // Cerrar modal al hacer clic en la "X"
+        closeInfoModalXButton.addEventListener('click', hideInfoModal);
+
+        // Cerrar modal al hacer clic fuera del contenido
+        infoModal.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                hideInfoModal();
+            }
+        });
+
+        // Cerrar modal al presionar la tecla "Escape"
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) {
+                hideInfoModal();
+            }
+        });
+
+        // Botón de información en el mapa (Leaflet Control)
+        const InfoControl = L.Control.extend({
+            onAdd: function(map) {
+                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom leaflet-control-info');
+                container.innerHTML = '<button class="bg-blue-600 text-white w-10 h-10 rounded-full shadow-md hover:bg-blue-700 focus:outline-none flex items-center justify-center" title="Información"><i class="fas fa-info text-lg"></i></button>';
+                container.style.width = '40px';
+                container.style.height = '40px';
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+                container.style.cursor = 'pointer';
+
+                L.DomEvent.on(container, 'click', showInfoModal);
+
+                return container;
+            },
+            onRemove: function(map) {
+                // Nada que hacer aquí
+            }
+        });
+
+        new InfoControl({ position: 'bottomleft' }).addTo(map);
 
         setFullScreenHeight();
         window.addEventListener('resize', setFullScreenHeight);
