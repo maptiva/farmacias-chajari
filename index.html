@@ -618,7 +618,7 @@
         let allPharmacies = [];
         const pharmacyList = document.getElementById('pharmacyList');
         setFullScreenHeight();
-        const map = L.map('map').setView([-30.7600, -57.9830], 14);
+                const map = L.map('map', {minZoom: 13}).setView([-30.7600, -57.9830], 14);
         const markers = L.layerGroup().addTo(map);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
