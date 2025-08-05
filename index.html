@@ -110,7 +110,7 @@
         @media (max-width: 768px) {
             .sidebar {
                 width: 100%;
-                height: 40vh;
+                height: 50vh;
                 flex-shrink: 0;
             }
             .sidebar.is-closed {
@@ -118,7 +118,7 @@
             }
             .map-wrapper {
                 padding: 0;
-                height: 60vh;
+                height: 50vh;
             }
             #map {
                 border-radius: 0;
@@ -623,7 +623,7 @@
         let allPharmacies = [];
         const pharmacyList = document.getElementById('pharmacyList');
         setFullScreenHeight();
-                const map = L.map('map', {minZoom: 13}).setView([-30.7600, -57.9830], 14);
+        const map = L.map('map', {minZoom: 13});
         const markers = L.layerGroup().addTo(map);
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -691,6 +691,14 @@
                     allPharmacies.push(farmacia);
                 });
                 renderPharmacies(allPharmacies);
+                
+                if (markers.getLayers().length > 0) {
+                    const featureGroup = L.featureGroup(markers.getLayers());
+                    map.fitBounds(featureGroup.getBounds().pad(0.1));
+                } else {
+                    map.setView([-30.7600, -57.9830], 14);
+                }
+
             } catch (error) {
                 console.error("Error al cargar datos de Firestore:", error);
                 pharmacyList.innerHTML = '<p class="text-red-500">Error al cargar las farmacias.</p>';
