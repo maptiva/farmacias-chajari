@@ -829,7 +829,7 @@
             const card = document.createElement('div');
             card.id = `pharmacy-${pharmacy.id}`;
             let cardClass = 'pharmacy-card p-3 rounded-lg border border-gray-200 cursor-pointer transition-all';
-            let titleColor = 'text-gray-800';
+            let titleColor = 'text-blue-600'; // Color azul por defecto, igual que en el popup
             let badgeHtml = '';
             if (pharmacy.dutyType === 'principal') {
                 cardClass += ' on-duty';
@@ -844,7 +844,7 @@
             card.innerHTML = `
                 <div class="flex justify-between items-start">
                     <div>
-                        <h3 class="font-bold ${titleColor}">
+                        <h3 class="font-bold text-lg ${titleColor}">
                             ${pharmacy.categoria ? `<span class="text-sm font-normal text-gray-500">${pharmacy.categoria}: </span>` : ''}
                             ${pharmacy.nombre}${badgeHtml}
                         </h3>
