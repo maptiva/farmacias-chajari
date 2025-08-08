@@ -37,6 +37,30 @@
                 </button>
             </form>
             <div id="login-error" class="mt-4 text-sm text-center text-red-600"></div>
+            <div class="mt-4 text-sm text-center">
+                <a href="#" id="forgot-password-link" class="font-medium text-blue-600 hover:text-blue-500">¿Olvidaste tu contraseña?</a>
+            </div>
+        </div>
+
+        <!-- Formulario de Reseteo de Contraseña (Oculto por defecto) -->
+        <div id="reset-container" class="hidden">
+            <h2 class="text-2xl font-bold text-center text-gray-800">Restablecer Contraseña</h2>
+            <p class="text-center text-gray-600">Ingresa tu email para recibir un enlace de restablecimiento.</p>
+            <form id="reset-form" class="mt-6 space-y-4">
+                <div>
+                    <label for="reset-email" class="text-sm font-medium text-gray-700">Email</label>
+                    <input type="email" id="reset-email" name="reset-email" required
+                           class="w-full px-4 py-2 mt-2 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <button type="submit"
+                        class="w-full px-4 py-2 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Enviar Enlace
+                </button>
+            </form>
+            <div id="reset-status" class="mt-4 text-sm text-center"></div>
+            <div class="mt-4 text-sm text-center">
+                <a href="#" id="back-to-login-link" class="font-medium text-blue-600 hover:text-blue-500">Volver a Iniciar Sesión</a>
+            </div>
         </div>
 
         <!-- Estado Autenticado -->
@@ -162,7 +186,8 @@
         getAuth, 
         signInWithEmailAndPassword, 
         onAuthStateChanged, 
-        signOut 
+        signOut,
+        sendPasswordResetEmail
     } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
     import { 
         getFirestore, 
@@ -187,6 +212,13 @@
     const togglePassword = document.getElementById('togglePassword');
     const passwordInput = document.getElementById('password');
     const eyeIcon = document.getElementById('eye-icon');
+
+    // Contenedores de Autenticación
+    const resetContainer = document.getElementById('reset-container');
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
+    const backToLoginLink = document.getElementById('back-to-login-link');
+    const resetForm = document.getElementById('reset-form');
+    const resetStatus = document.getElementById('reset-status');
 
     // Formularios de Intercambio
     const exchangePrincipalForm = document.getElementById('exchange-principal-form');
@@ -237,6 +269,38 @@
         passwordInput.setAttribute('type', type);
         eyeIcon.classList.toggle('fa-eye');
         eyeIcon.classList.toggle('fa-eye-slash');
+    });
+
+    // --- LÓGICA DE RESETEO DE CONTRASEÑA ---
+    forgotPasswordLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        loginContainer.classList.add('hidden');
+        resetContainer.classList.remove('hidden');
+    });
+
+    backToLoginLink.addEventListener('click', (e) => {
+        e.preventDefault();
+        resetContainer.classList.add('hidden');
+        loginContainer.classList.remove('hidden');
+        resetStatus.textContent = ''; // Limpiar mensajes de estado
+        loginError.textContent = '';
+    });
+
+    resetForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const email = resetForm['reset-email'].value;
+        resetStatus.textContent = 'Enviando...';
+        resetStatus.className = 'mt-4 text-sm text-center text-yellow-600';
+
+        try {
+            await sendPasswordResetEmail(auth, email);
+            resetStatus.textContent = '¡Correo enviado! Revisa tu bandeja de entrada para restablecer la contraseña.';
+            resetStatus.className = 'mt-4 text-sm text-center text-green-600';
+        } catch (error) {
+            console.error("Error al enviar correo de reseteo:", error);
+            resetStatus.textContent = 'No se pudo enviar el correo. Verifica que la dirección sea correcta.';
+            resetStatus.className = 'mt-4 text-sm text-center text-red-600';
+        }
     });
 
     // --- LÓGICA DE GESTIÓN DE TURNOS ---
