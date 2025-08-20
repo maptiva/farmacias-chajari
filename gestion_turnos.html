@@ -285,9 +285,40 @@
         }
     });
 
-    // --- Lógica de login y reseteo (simplificada para brevedad, sin cambios) ---
-    document.getElementById('login-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await signInWithEmailAndPassword(auth, e.target.email.value, e.target.password.value); } catch (error) { document.getElementById('login-error').textContent = 'Email o contraseña incorrectos.'; } });
+    // --- Lógica de Autenticación y UI de Login ---
+    const loginForm = document.getElementById('login-form');
+    const loginError = document.getElementById('login-error');
+    const togglePassword = document.getElementById('togglePassword');
+    const passwordInput = document.getElementById('password');
+    const eyeIcon = document.getElementById('eye-icon');
+    const resetContainer = document.getElementById('reset-container');
+    const forgotPasswordLink = document.getElementById('forgot-password-link');
+    const backToLoginLink = document.getElementById('back-to-login-link');
+    const resetForm = document.getElementById('reset-form');
+    const resetStatus = document.getElementById('reset-status');
+
+    loginForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        loginError.textContent = '';
+        try {
+            await signInWithEmailAndPassword(auth, loginForm.email.value, loginForm.password.value);
+        } catch (error) {
+            loginError.textContent = 'Email o contraseña incorrectos.';
+        }
+    });
+
     document.getElementById('logout-button').addEventListener('click', () => signOut(auth));
+
+    togglePassword.addEventListener('click', () => {
+        const type = passwordInput.getAttribute('type') === 'password' ? 'text' : 'password';
+        passwordInput.setAttribute('type', type);
+        eyeIcon.classList.toggle('fa-eye');
+        eyeIcon.classList.toggle('fa-eye-slash');
+    });
+
+    forgotPasswordLink.addEventListener('click', (e) => { e.preventDefault(); loginContainer.classList.add('hidden'); resetContainer.classList.remove('hidden'); });
+    backToLoginLink.addEventListener('click', (e) => { e.preventDefault(); resetContainer.classList.add('hidden'); loginContainer.classList.remove('hidden'); });
+    resetForm.addEventListener('submit', async (e) => { e.preventDefault(); const email = resetForm['reset-email'].value; resetStatus.textContent = 'Enviando...'; try { await sendPasswordResetEmail(auth, email); resetStatus.textContent = '¡Correo enviado!'; } catch (error) { resetStatus.textContent = 'Error al enviar el correo.'; } });
 </script>
 
 </body>
