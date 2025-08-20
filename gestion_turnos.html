@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Cambio de Turnos Imprevistos - Farmacias Chajarí</title>
+    <title>Gestión de Turnos - Farmacias Chajarí</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 </head>
@@ -65,110 +65,230 @@
 
         <!-- Estado Autenticado -->
         <div id="gestion-container" class="hidden">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-2xl font-bold text-gray-800">Panel de Gestión de Turnos</h2>
+            <div class="flex justify-between items-center mb-6">
+                <h2 class="text-2xl font-bold text-gray-800">Panel de Gestión</h2>
                 <button id="logout-button" class="px-3 py-1 text-sm font-bold text-white bg-orange-500 rounded-md hover:bg-orange-600">
                     <i class="fas fa-sign-out-alt mr-1"></i>Cerrar Sesión
                 </button>
             </div>
             
-            <!-- Sección: Intercambio de Turnos Principales -->
-            <div class="bg-white p-6 rounded-lg shadow-md mb-6">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Intercambiar Turnos Principales</h3>
-                <p class="text-sm text-gray-600 mb-4">
-                    Selecciona dos farmacias y las fechas de sus turnos principales para intercambiarlos.
-                </p>
-                <form id="exchange-principal-form" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="principalPharmacyA" class="block text-sm font-medium text-gray-700">Farmacia A</label>
-                            <select id="principalPharmacyA" name="principalPharmacyA" required
-                                    class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Cargando farmacias...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="principalDateA" class="block text-sm font-medium text-gray-700">Fecha A</label>
-                            <select id="principalDateA" name="principalDateA" required disabled
-                                   class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
-                                <option value="">Primero selecciona una farmacia</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="principalPharmacyB" class="block text-sm font-medium text-gray-700">Farmacia B</label>
-                            <select id="principalPharmacyB" name="principalPharmacyB" required
-                                    class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Cargando farmacias...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="principalDateB" class="block text-sm font-medium text-gray-700">Fecha B</label>
-                            <select id="principalDateB" name="principalDateB" required disabled
-                                   class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
-                                <option value="">Primero selecciona una farmacia</option>
-                            </select>
-                        </div>
-                    </div>
-                    <button type="submit"
-                            class="w-full px-4 py-2 font-bold text-white bg-red-600 rounded-lg hover:bg-red-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-red-500">
-                        <i class="fas fa-exchange-alt mr-2"></i>Realizar Intercambio Principal
-                    </button>
-                    <div id="principal-status" class="mt-4 text-sm text-center"></div>
-                </form>
-            </div>
-
-            <!-- Sección: Intercambio de Turnos de Refuerzo -->
             <div class="bg-white p-6 rounded-lg shadow-md">
-                <h3 class="text-xl font-bold text-gray-800 mb-4">Intercambiar Turnos de Refuerzo</h3>
-                <p class="text-sm text-gray-600 mb-4">
-                    Selecciona dos farmacias y las fechas de sus turnos de refuerzo para intercambiarlos.
-                </p>
-                <form id="exchange-refuerzo-form" class="space-y-4">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="refuerzoPharmacyA" class="block text-sm font-medium text-gray-700">Farmacia A</label>
-                            <select id="refuerzoPharmacyA" name="refuerzoPharmacyA" required
-                                    class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Cargando farmacias...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="refuerzoDateA" class="block text-sm font-medium text-gray-700">Fecha A</label>
-                            <select id="refuerzoDateA" name="refuerzoDateA" required disabled
-                                   class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
-                                <option value="">Primero selecciona una farmacia</option>
-                            </select>
-                        </div>
+                <h3 class="text-xl font-bold text-gray-800 mb-4">Reasignar un Turno</h3>
+                <p class="text-sm text-gray-600 mb-4">Selecciona una fecha para ver los turnos asignados y reasignar uno a otra farmacia.</p>
+                <form id="reasignar-turno-form" class="space-y-4">
+                    <div>
+                        <label for="fecha-reasignar" class="block text-sm font-medium text-gray-700">Fecha del Turno a Reasignar</label>
+                        <input type="date" id="fecha-reasignar" name="fecha-reasignar" required class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                        <div id="turno-info-display" class="mt-2 text-sm space-y-1"></div>
                     </div>
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                        <div>
-                            <label for="refuerzoPharmacyB" class="block text-sm font-medium text-gray-700">Farmacia B</label>
-                            <select id="refuerzoPharmacyB" name="refuerzoPharmacyB" required
-                                    class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
-                                <option value="">Cargando farmacias...</option>
-                            </select>
-                        </div>
-                        <div>
-                            <label for="refuerzoDateB" class="block text-sm font-medium text-gray-700">Fecha B</label>
-                            <select id="refuerzoDateB" name="refuerzoDateB" required disabled
-                                   class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500 disabled:opacity-50">
-                                <option value="">Primero selecciona una farmacia</option>
-                            </select>
-                        </div>
+                    <div>
+                        <label for="tipo-reasignar" class="block text-sm font-medium text-gray-700">Tipo de Turno a Reasignar</label>
+                        <select id="tipo-reasignar" name="tipo-reasignar" required class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            <option value="principal">Principal</option>
+                            <option value="refuerzo">Refuerzo</option>
+                        </select>
                     </div>
-                    <button type="submit"
-                            class="w-full px-4 py-2 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
-                        <i class="fas fa-exchange-alt mr-2"></i>Realizar Intercambio Refuerzo
+                    <div>
+                        <label for="nueva-farmacia-select" class="block text-sm font-medium text-gray-700">Nueva Farmacia que cubrirá el turno</label>
+                        <select id="nueva-farmacia-select" name="nueva-farmacia-select" required class="w-full px-4 py-2 mt-1 text-gray-700 bg-gray-200 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">Cargando farmacias...</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full px-4 py-2 font-bold text-white bg-green-600 rounded-lg hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-green-500">
+                        <i class="fas fa-random mr-2"></i>Confirmar Reasignación
                     </button>
-                    <div id="refuerzo-status" class="mt-4 text-sm text-center"></div>
+                    <div id="reasignar-status" class="mt-4 text-sm text-center"></div>
                 </form>
             </div>
         </div>
     </div>
 
-<script type="module" src="gestion_turnos.js"></script>
+    <!-- Modal Personalizado -->
+    <div id="custom-modal" class="fixed inset-0 bg-gray-900 bg-opacity-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md animate-fade-in-up">
+            <div class="p-4 border-b flex justify-between items-center">
+                <h3 id="modal-title" class="text-xl font-bold text-gray-800"></h3>
+                <button id="modal-close-btn-x" class="text-gray-500 hover:text-gray-800 text-3xl font-bold leading-none focus:outline-none">&times;</button>
+            </div>
+            <div class="p-6">
+                <p id="modal-body" class="text-gray-600"></p>
+            </div>
+            <div class="p-4 bg-gray-50 text-right">
+                <button id="modal-close-btn" class="px-5 py-2 font-bold text-white bg-blue-600 rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">
+                    Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+
+<style>
+    @keyframes fade-in-up {
+        from { opacity: 0; transform: translateY(20px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+    .animate-fade-in-up {
+        animation: fade-in-up 0.3s ease-out forwards;
+    }
+</style>
+
+<script type="module">
+    // Importar instancias de Firebase y funciones de los SDK
+    import { auth, db } from './firebase-config.js';
+    import { signInWithEmailAndPassword, onAuthStateChanged, signOut, sendPasswordResetEmail } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-auth.js";
+    import { collection, getDocs, doc, query, runTransaction } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
+
+    // --- Elementos del DOM ---
+    const loginContainer = document.getElementById('login-container');
+    const gestionContainer = document.getElementById('gestion-container');
+    const reasignarForm = document.getElementById('reasignar-turno-form');
+    const fechaInput = document.getElementById('fecha-reasignar');
+    const tipoSelect = document.getElementById('tipo-reasignar');
+    const nuevaFarmaciaSelect = document.getElementById('nueva-farmacia-select');
+    const reasignarStatus = document.getElementById('reasignar-status');
+    const turnoInfoDisplay = document.getElementById('turno-info-display');
+
+    // --- Elementos del Modal ---
+    const customModal = document.getElementById('custom-modal');
+    const modalTitle = document.getElementById('modal-title');
+    const modalBody = document.getElementById('modal-body');
+    const modalCloseBtn = document.getElementById('modal-close-btn');
+    const modalCloseBtnX = document.getElementById('modal-close-btn-x');
+
+    // --- Estado Global ---
+    let farmaciasData = [];
+
+    // --- Lógica del Modal ---
+    function showModal(title, messageAsHTML) {
+        modalTitle.textContent = title;
+        modalBody.innerHTML = messageAsHTML; // Usar innerHTML para renderizar el formato
+        customModal.classList.remove('hidden');
+    }
+    function hideModal() {
+        customModal.classList.add('hidden');
+    }
+    modalCloseBtn.addEventListener('click', hideModal);
+    modalCloseBtnX.addEventListener('click', hideModal);
+    customModal.addEventListener('click', (e) => { if (e.target === customModal) hideModal(); });
+
+    // --- Lógica de Autenticación ---
+    onAuthStateChanged(auth, (user) => {
+        if (user) {
+            gestionContainer.classList.remove('hidden');
+            loginContainer.classList.add('hidden');
+            inicializarPanel();
+        } else {
+            gestionContainer.classList.add('hidden');
+            loginContainer.classList.remove('hidden');
+            farmaciasData = [];
+        }
+    });
+
+    // --- Lógica de Gestión de Turnos Mejorada ---
+    async function inicializarPanel() {
+        reasignarStatus.textContent = 'Cargando datos de farmacias...';
+        try {
+            const querySnapshot = await getDocs(collection(db, "farmacias"));
+            farmaciasData = querySnapshot.docs.map(doc => ({ id: doc.id, ...doc.data() }));
+            farmaciasData.sort((a, b) => a.nombre.localeCompare(b.nombre));
+
+            nuevaFarmaciaSelect.innerHTML = '<option value="">Selecciona una farmacia...</option>';
+            farmaciasData.forEach(f => {
+                const option = document.createElement('option');
+                option.value = f.id;
+                option.textContent = f.nombre;
+                nuevaFarmaciaSelect.appendChild(option);
+            });
+
+            fechaInput.addEventListener('change', actualizarFormulario);
+            tipoSelect.addEventListener('change', actualizarFormulario);
+            reasignarStatus.textContent = '';
+        } catch (error) {
+            reasignarStatus.textContent = "Error crítico: No se pudieron cargar los datos.";
+        }
+    }
+
+    function actualizarFormulario() {
+        const fecha = fechaInput.value;
+        const tipoReasignar = tipoSelect.value;
+        turnoInfoDisplay.innerHTML = '';
+        if (!fecha) return;
+
+        let infoPrincipal = '';
+        let infoRefuerzo = '';
+        farmaciasData.forEach(farmacia => {
+            farmacia.turnos.forEach(turno => {
+                if (turno.fecha === fecha) {
+                    if (turno.tipo === 'principal') infoPrincipal = `<p class="text-red-600 font-semibold">Turno Principal: ${farmacia.nombre}</p>`;
+                    if (turno.tipo === 'refuerzo') infoRefuerzo = `<p class="text-green-600 font-semibold">Turno Refuerzo: ${farmacia.nombre}</p>`;
+                }
+            });
+        });
+        turnoInfoDisplay.innerHTML = infoPrincipal + infoRefuerzo || '<p class="text-gray-500">No hay turnos asignados.</p>';
+
+        const tipoOpuesto = tipoReasignar === 'principal' ? 'refuerzo' : 'principal';
+        const farmaciaOriginal = farmaciasData.find(f => f.turnos.some(t => t.fecha === fecha && t.tipo === tipoReasignar));
+        const farmaciaOpuesta = farmaciasData.find(f => f.turnos.some(t => t.fecha === fecha && t.tipo === tipoOpuesto));
+        
+        for (const option of nuevaFarmaciaSelect.options) {
+            const idOpcion = option.value;
+            let ocultar = (farmaciaOriginal && idOpcion === farmaciaOriginal.id) || (farmaciaOpuesta && idOpcion === farmaciaOpuesta.id);
+            option.style.display = ocultar ? 'none' : '';
+        }
+        if (nuevaFarmaciaSelect.options[nuevaFarmaciaSelect.selectedIndex]?.style.display === 'none') {
+            nuevaFarmaciaSelect.value = '';
+        }
+    }
+
+    reasignarForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fecha = fechaInput.value, tipo = tipoSelect.value, nuevaFarmaciaId = nuevaFarmaciaSelect.value;
+        if (!fecha || !tipo || !nuevaFarmaciaId) {
+            reasignarStatus.textContent = 'Error: Debes completar todos los campos.';
+            return;
+        }
+        reasignarStatus.textContent = 'Procesando...';
+
+        const farmaciaOriginal = farmaciasData.find(f => f.turnos.some(t => t.fecha === fecha && t.tipo === tipo));
+        if (!farmaciaOriginal) {
+            reasignarStatus.textContent = `Error: No se encontró un turno '${tipo}' para la fecha.`;
+            return;
+        }
+
+        try {
+            await runTransaction(db, async (transaction) => {
+                const farmaciaOriginalRef = doc(db, "farmacias", farmaciaOriginal.id);
+                const nuevaFarmaciaRef = doc(db, "farmacias", nuevaFarmaciaId);
+                const [originalDoc, nuevaDoc] = await Promise.all([transaction.get(farmaciaOriginalRef), transaction.get(nuevaFarmaciaRef)]);
+                if (!originalDoc.exists() || !nuevaDoc.exists()) throw new Error("Farmacia no encontrada.");
+
+                const nuevosTurnosOriginal = originalDoc.data().turnos.filter(t => !(t.fecha === fecha && t.tipo === tipo));
+                const nuevosTurnosNueva = [...nuevaDoc.data().turnos, { fecha, tipo }];
+                transaction.update(farmaciaOriginalRef, { turnos: nuevosTurnosOriginal.sort((a,b) => a.fecha.localeCompare(b.fecha)) });
+                transaction.update(nuevaFarmaciaRef, { turnos: nuevosTurnosNueva.sort((a,b) => a.fecha.localeCompare(b.fecha)) });
+            });
+
+            const nuevaFarmaciaNombre = nuevaFarmaciaSelect.options[nuevaFarmaciaSelect.selectedIndex].text;
+            reasignarStatus.textContent = `¡Éxito! Turno reasignado de ${farmaciaOriginal.nombre} a ${nuevaFarmaciaNombre}.`;
+
+            // Construir el mensaje dinámico para el modal
+            const modalMessage = `En la fecha <strong>${fecha}</strong>, la farmacia <strong>${nuevaFarmaciaNombre}</strong> reemplaza a <strong>${farmaciaOriginal.nombre}</strong> en el turno <strong>${tipo}</strong>.` +
+                             `<br><br>Por favor, envía un email de notificación a <strong>maptiva.sig.app@gmail.com</strong> para mantener un registro.`;
+
+            showModal("¡Reasignación Exitosa!", modalMessage);
+            
+            reasignarForm.reset();
+            turnoInfoDisplay.innerHTML = '';
+            await inicializarPanel();
+
+        } catch (error) {
+            reasignarStatus.textContent = `Error: ${error.message}`;
+        }
+    });
+
+    // --- Lógica de login y reseteo (simplificada para brevedad, sin cambios) ---
+    document.getElementById('login-form').addEventListener('submit', async (e) => { e.preventDefault(); try { await signInWithEmailAndPassword(auth, e.target.email.value, e.target.password.value); } catch (error) { document.getElementById('login-error').textContent = 'Email o contraseña incorrectos.'; } });
+    document.getElementById('logout-button').addEventListener('click', () => signOut(auth));
+</script>
 
 </body>
 </html>
