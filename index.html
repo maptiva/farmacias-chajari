@@ -454,14 +454,9 @@
                         <img src="icons/icono_circ_250.png" alt="Logo de Farmacias Chajarí" class="h-8 mr-2">
                         <span>Farmacias Chajarí</span>
                     </h1>
-                    <div class="flex items-center space-x-4">
-                        <button id="open-calendar-modal" class="text-white focus:outline-none" title="Ver calendario de turnos">
-                            <i class="fas fa-calendar-alt text-xl"></i>
-                        </button>
-                        <button id="toggleSidebar" class="md:hidden text-white">
-                            <i class="fas fa-bars"></i>
-                        </button>
-                    </div>
+                    <button id="toggleSidebar" class="md:hidden text-white">
+                        <i class="fas fa-bars"></i>
+                    </button>
                 </div>
                 <div class="mt-2 relative">
                     <input type="text" id="searchInput" placeholder="Buscar farmacia..." 
@@ -607,47 +602,6 @@
         </div>
     </div>
 
-    <!-- Modal del Calendario -->
-    <div id="calendar-modal" class="hidden fixed inset-0 bg-gray-800 bg-opacity-60 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div class="relative mx-auto p-4 md:p-5 border w-11/12 max-w-sm md:max-w-3xl shadow-lg rounded-md bg-white">
-            <!-- Cabecera del Modal -->
-            <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-                <button id="prev-month" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Mes anterior">
-                    <i class="fas fa-chevron-left text-gray-600"></i>
-                </button>
-                <h2 id="calendar-month-year" class="text-lg md:text-xl font-bold text-gray-800 text-center"></h2>
-                <button id="next-month" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Mes siguiente">
-                    <i class="fas fa-chevron-right text-gray-600"></i>
-                </button>
-                <button id="close-calendar-modal" class="absolute top-3 right-3 p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Cerrar">
-                    <i class="fas fa-times text-gray-600"></i>
-                </button>
-            </div>
-            <!-- Contenido del Modal (Calendario) -->
-            <div class="mt-3">
-                <!-- Encabezados para Escritorio -->
-                <div class="hidden md:grid grid-cols-7 gap-2 text-center font-bold text-sm mb-2 text-gray-600">
-                    <div>Lunes</div><div>Martes</div><div>Miércoles</div><div>Jueves</div><div>Viernes</div><div>Sábado</div><div>Domingo</div>
-                </div>
-                <!-- Leyenda para Escritorio -->
-                <div class="hidden md:flex justify-center items-center space-x-4 text-xs my-2 text-gray-600">
-                    <div class="flex items-center"><span class="w-3 h-3 bg-red-600 rounded-full mr-1.5"></span>TURNO</div>
-                    <div class="flex items-center"><span class="w-3 h-3 bg-green-600 rounded-full mr-1.5"></span>REFUERZO</div>
-                </div>
-                
-                <!-- Vista de Grilla para Escritorio -->
-                <div id="calendar-grid" class="hidden md:grid grid-cols-7 gap-1 md:gap-2">
-                    <!-- Los días del calendario se generarán aquí -->
-                </div>
-
-                <!-- Vista de Lista para Móvil -->
-                <div id="calendar-list" class="block md:hidden h-96 overflow-y-auto pr-2">
-                    <!-- El contenido de la lista se generará aquí -->
-                </div>
-            </div>
-        </div>
-    </div>
-
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
     import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
@@ -666,8 +620,6 @@
 
     document.addEventListener('DOMContentLoaded', function() {
         let allPharmacies = [];
-        let allShifts = [];
-        let currentDate = new Date();
         const pharmacyList = document.getElementById('pharmacyList');
         setFullScreenHeight();
         const map = L.map('map', {minZoom: 13});
@@ -688,15 +640,18 @@
             const now = new Date();
             const hour = now.getHours();
             
+            // For the main on-duty pharmacy (24 hours, from 8 AM to 8 AM next day)
             let principalDate = new Date(now);
             if (hour < 8) {
                 principalDate.setDate(principalDate.getDate() - 1);
             }
             const principalDateString = `${principalDate.getFullYear()}-${String(principalDate.getMonth() + 1).padStart(2, '0')}-${String(principalDate.getDate()).padStart(2, '0')}`;
 
+            // For the reinforcement pharmacy (today's date)
             const today = new Date();
             const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
             
+            // Reinforcement is active only from 8:00 AM to 10:59 PM (23:00)
             const isReinforcementActive = hour >= 8 && hour < 23;
 
             return { principalDateString, todayDateString, isReinforcementActive };
@@ -707,30 +662,25 @@
             try {
                 const querySnapshot = await getDocs(collection(db, "farmacias"));
                 allPharmacies = [];
-                allShifts = []; // Limpiar turnos antes de cargar
                 querySnapshot.forEach((doc) => {
                     const farmacia = doc.data();
                     farmacia.id = doc.id;
                     farmacia.dutyType = null;
 
                     if (farmacia.turnos && Array.isArray(farmacia.turnos)) {
-                        // Llenar la lista de todos los turnos para el calendario
-                        farmacia.turnos.forEach(turno => {
-                            allShifts.push({
-                                date: turno.fecha,
-                                name: farmacia.nombre,
-                                type: turno.tipo
-                            });
-                        });
-
+                        // Check for principal on-duty pharmacy
                         const turnoPrincipal = farmacia.turnos.find(t => t.fecha === principalDateString && t.tipo === 'principal');
                         if (turnoPrincipal) {
                             farmacia.dutyType = 'principal';
                         }
 
+                        // Check for reinforcement pharmacy, only if it's within the active time window
                         if (isReinforcementActive) {
                             const turnoRefuerzo = farmacia.turnos.find(t => t.fecha === todayDateString && t.tipo === 'refuerzo');
                             if (turnoRefuerzo) {
+                                // A pharmacy can't be both principal and reinforcement, principal takes precedence.
+                                // This logic assumes a pharmacy is either one or the other on a given day.
+                                // If a pharmacy could be both, this would need adjustment.
                                 if (!farmacia.dutyType) {
                                    farmacia.dutyType = 'refuerzo';
                                 }
@@ -790,31 +740,44 @@
 
         function generarBotonesDeAccion(farmacia) {
             let botonesHtml = '<div class="mt-2 flex items-center gap-2">';
+
+            // WhatsApp Button (Green)
             if (farmacia.whatsapp) {
                 const whatsappNumber = farmacia.whatsapp.replace(/\s|-/g, '');
                 botonesHtml += `<a href="https://wa.me/${whatsappNumber}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors" title="Enviar WhatsApp"><i class="fab fa-whatsapp accion-icono"></i></a>`;
             } else {
                 botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="WhatsApp no disponible"><i class="fab fa-whatsapp accion-icono"></i></span>`;
             }
+
+            // Phone Button (Blue)
             if (farmacia.telefono) {
                 botonesHtml += `<a href="tel:${farmacia.telefono}" class="flex items-center justify-center w-8 h-8 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors" title="Llamar"><i class="fas fa-phone accion-icono"></i></a>`;
             } else {
                 botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="Teléfono no disponible"><i class="fas fa-phone accion-icono"></i></span>`;
             }
+
+            // Map Button (Red)
             if (farmacia.coordenadas && farmacia.coordenadas.latitude && farmacia.coordenadas.longitude) {
                 botonesHtml += `<a href="https://www.google.com/maps/dir/?api=1&destination=${farmacia.coordenadas.latitude},${farmacia.coordenadas.longitude}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors" title="Cómo llegar"><i class="fas fa-map-marker-alt accion-icono"></i></a>`;
             } else {
                  botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="Ubicación no disponible"><i class="fas fa-map-marker-alt accion-icono"></i></span>`;
             }
+
+            // Website button
             if (farmacia.sitio_web) {
                 botonesHtml += `<a href="${farmacia.sitio_web}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors" title="Sitio Web"><i class="fas fa-globe accion-icono"></i></a>`;
             }
+
+            // Instagram button
             if (farmacia.instagram) {
                 botonesHtml += `<a href="${farmacia.instagram}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-pink-500 to-yellow-500 text-white rounded-md hover:opacity-90 transition-opacity" title="Instagram"><i class="fab fa-instagram accion-icono"></i></a>`;
             }
+
+            // Facebook button
             if (farmacia.facebook) {
                 botonesHtml += `<a href="${farmacia.facebook}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition-colors" title="Facebook"><i class="fab fa-facebook accion-icono"></i></a>`;
             }
+
             botonesHtml += '</div>';
             return botonesHtml;
         }
@@ -865,7 +828,7 @@
             const card = document.createElement('div');
             card.id = `pharmacy-${pharmacy.id}`;
             let cardClass = 'pharmacy-card p-3 rounded-lg border border-gray-200 cursor-pointer transition-all';
-            let titleColor = 'text-blue-600';
+            let titleColor = 'text-blue-600'; // Color azul por defecto, igual que en el popup
             let badgeHtml = '';
             if (pharmacy.dutyType === 'principal') {
                 cardClass += ' on-duty';
@@ -910,2292 +873,146 @@
             renderPharmacies(filtered);
         });
 
+        // Lógica del Acordeón "Más Información"
         const infoAccordionHeader = document.getElementById('infoAccordionHeader');
         const infoAccordionContent = document.getElementById('infoAccordionContent');
         const infoAccordionIcon = document.getElementById('infoAccordionIcon');
+
         infoAccordionHeader.addEventListener('click', () => {
             infoAccordionContent.classList.toggle('hidden');
             infoAccordionIcon.classList.toggle('rotate-180');
         });
 
+        // Lógica del Modal "Acerca de"
         const aboutButton = document.getElementById('aboutButton');
         const mobileAboutButton = document.getElementById('mobileAboutButton');
         const aboutModal = document.getElementById('aboutModal');
         const closeModalButton = document.getElementById('closeModalButton');
-        aboutButton.addEventListener('click', () => aboutModal.classList.remove('hidden'));
-        closeModalButton.addEventListener('click', () => aboutModal.classList.add('hidden'));
-        aboutModal.addEventListener('click', (e) => { if (e.target === aboutModal) aboutModal.classList.add('hidden'); });
+
+        aboutButton.addEventListener('click', () => {
+            aboutModal.classList.remove('hidden');
+        });
+
+        closeModalButton.addEventListener('click', () => {
+            aboutModal.classList.add('hidden');
+        });
+
+        aboutModal.addEventListener('click', (e) => {
+            if (e.target === aboutModal) {
+                aboutModal.classList.add('hidden');
+            }
+        });
+
+        // --- Refactorización del Control del Menú Móvil ---
 
         const sidebar = document.querySelector('.sidebar');
         const mobileMenu = document.getElementById('mobileMenu');
         const toggleSidebarButton = document.getElementById('toggleSidebar');
         const closeMobileMenuButton = document.getElementById('closeMobileMenu');
-        function abrirMobileMenu() { mobileMenu.classList.remove('hidden'); mobileMenu.classList.add('is-open'); }
-        function cerrarMobileMenu() { mobileMenu.classList.add('hidden'); mobileMenu.classList.remove('is-open'); }
-        mobileAboutButton.addEventListener('click', () => { aboutModal.classList.remove('hidden'); cerrarMobileMenu(); });
-        closeMobileMenuButton.addEventListener('click', () => cerrarMobileMenu());
+
+        // Función para abrir el menú de "Más Información"
+        function abrirMobileMenu() {
+            mobileMenu.classList.remove('hidden');
+            mobileMenu.classList.add('is-open');
+        }
+
+        // Función para cerrar el menú de "Más Información"
+        function cerrarMobileMenu() {
+            mobileMenu.classList.add('hidden');
+            mobileMenu.classList.remove('is-open');
+        }
+
+        // Botón "Acerca de" en el menú móvil
+        mobileAboutButton.addEventListener('click', () => {
+            aboutModal.classList.remove('hidden');
+            cerrarMobileMenu(); // Llama a la función centralizada
+        });
+
+        // Botón de cerrar (la 'X') en el menú móvil
+        closeMobileMenuButton.addEventListener('click', () => {
+            cerrarMobileMenu(); // Llama a la función centralizada
+        });
+
+        // Botón principal de hamburguesa
         toggleSidebarButton.addEventListener('click', () => {
+            // En móvil, este botón tiene doble función:
+            // 1. Si el panel de farmacias está cerrado (`is-closed`), lo abre.
+            // 2. Si el panel de farmacias está abierto, controla el menú "Más Información".
             const isSidebarPanelClosed = sidebar.classList.contains('is-closed');
+            
             if (isSidebarPanelClosed) {
                 sidebar.classList.remove('is-closed');
                 setTimeout(() => map.invalidateSize(), 400);
             } else {
-                if (mobileMenu.classList.contains('hidden')) { abrirMobileMenu(); } else { cerrarMobileMenu(); }
+                // Controla el menú "Más Información" usando las funciones
+                if (mobileMenu.classList.contains('hidden')) {
+                    abrirMobileMenu();
+                } else {
+                    cerrarMobileMenu();
+                }
             }
         });
 
+        // Lógica del Modal de Información
         const infoModal = document.getElementById('infoModal');
         const closeInfoModalButton = document.getElementById('close-info-modal');
         const closeInfoModalXButton = document.getElementById('close-info-modal-x');
-        function showInfoModal() { infoModal.classList.remove('hidden'); }
-        function hideInfoModal() { infoModal.classList.add('hidden'); }
-        closeInfoModalButton.addEventListener('click', hideInfoModal);
-        closeInfoModalXButton.addEventListener('click', hideInfoModal);
-        infoModal.addEventListener('click', (e) => { if (e.target === infoModal) hideInfoModal(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) hideInfoModal(); });
 
+        function showInfoModal() {
+            infoModal.classList.remove('hidden');
+        }
+
+        function hideInfoModal() {
+            infoModal.classList.add('hidden');
+        }
+
+        // Cerrar modal al hacer clic en el botón "Entendido"
+        closeInfoModalButton.addEventListener('click', hideInfoModal);
+
+        // Cerrar modal al hacer clic en la "X"
+        closeInfoModalXButton.addEventListener('click', hideInfoModal);
+
+        // Cerrar modal al hacer clic fuera del contenido
+        infoModal.addEventListener('click', (e) => {
+            if (e.target === infoModal) {
+                hideInfoModal();
+            }
+        });
+
+        // Cerrar modal al presionar la tecla "Escape"
+        document.addEventListener('keydown', (e) => {
+            if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) {
+                hideInfoModal();
+            }
+        });
+
+        // Botón de información en el mapa (Leaflet Control)
         const InfoControl = L.Control.extend({
             onAdd: function(map) {
                 const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom leaflet-control-info');
                 container.innerHTML = '<button class="bg-blue-600 text-white w-10 h-10 rounded-full shadow-md hover:bg-blue-700 focus:outline-none flex items-center justify-center" title="Información"><i class="fas fa-info text-lg"></i></button>';
-                container.style.width = '40px'; container.style.height = '40px'; container.style.display = 'flex'; container.style.alignItems = 'center'; container.style.justifyContent = 'center'; container.style.cursor = 'pointer';
+                container.style.width = '40px';
+                container.style.height = '40px';
+                container.style.display = 'flex';
+                container.style.alignItems = 'center';
+                container.style.justifyContent = 'center';
+                container.style.cursor = 'pointer';
+
                 L.DomEvent.on(container, 'click', showInfoModal);
+
                 return container;
             },
-            onRemove: function(map) {}
+            onRemove: function(map) {
+                // Nada que hacer aquí
+            }
         });
+
         new InfoControl({ position: 'bottomleft' }).addTo(map);
-
-        // --- LÓGICA DEL CALENDARIO MODAL ---
-        function setupCalendarModal() {
-            const calendarModal = document.getElementById('calendar-modal');
-            const openBtn = document.getElementById('open-calendar-modal');
-            const closeBtn = document.getElementById('close-calendar-modal');
-            const prevMonthBtn = document.getElementById('prev-month');
-            const nextMonthBtn = document.getElementById('next-month');
-
-            openBtn.addEventListener('click', () => {
-                currentDate = new Date(); // Reset to current month on open
-                renderCalendar(currentDate);
-                calendarModal.classList.remove('hidden');
-            });
-
-            const closeModal = () => calendarModal.classList.add('hidden');
-            closeBtn.addEventListener('click', closeModal);
-            calendarModal.addEventListener('click', (e) => {
-                if (e.target.id === 'calendar-modal') closeModal();
-            });
-
-            prevMonthBtn.addEventListener('click', () => {
-                currentDate.setMonth(currentDate.getMonth() - 1);
-                renderCalendar(currentDate);
-            });
-
-            nextMonthBtn.addEventListener('click', () => {
-                currentDate.setMonth(currentDate.getMonth() + 1);
-                renderCalendar(currentDate);
-            });
-        }
-
-        function renderCalendar(date) {
-            const calendarGrid = document.getElementById('calendar-grid');
-            const calendarList = document.getElementById('calendar-list');
-            const monthYearTitle = document.getElementById('calendar-month-year');
-            calendarGrid.innerHTML = '';
-            calendarList.innerHTML = '';
-
-            const month = date.getMonth();
-            const year = date.getFullYear();
-
-            monthYearTitle.textContent = date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
-
-            const firstDayOfMonth = new Date(year, month, 1);
-            const lastDayOfMonth = new Date(year, month + 1, 0);
-            const daysInMonth = lastDayOfMonth.getDate();
-            const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // 0 = Lunes
-
-            // --- Renderizar Vista de Grilla (Escritorio) ---
-            for (let i = 0; i < startDayOfWeek; i++) {
-                calendarGrid.appendChild(document.createElement('div'));
-            }
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayCell = document.createElement('div');
-                dayCell.className = 'p-1 md:p-1.5 text-xs border border-gray-200 rounded-md flex flex-col h-24 md:h-28 overflow-hidden';
-                const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const shiftsForDay = allShifts.filter(s => s.date === dateString);
-                const dayNumber = document.createElement('span');
-                dayNumber.className = 'font-bold self-start mb-1';
-                dayNumber.textContent = day;
-                dayCell.appendChild(dayNumber);
-                if (shiftsForDay.length > 0) {
-                    const shiftsContainer = document.createElement('div');
-                    shiftsContainer.className = 'overflow-y-auto text-left';
-                    shiftsForDay.sort((a, b) => a.type === 'principal' ? -1 : 1).forEach(shift => {
-                        const shiftP = document.createElement('p');
-                        shiftP.textContent = shift.name;
-                        shiftP.className = 'break-words';
-                        if (shift.type === 'principal') {
-                            shiftP.classList.add('font-bold', 'text-red-600');
-                        } else if (shift.type === 'refuerzo') {
-                            shiftP.classList.add('font-semibold', 'text-green-600');
-                        }
-                        shiftsContainer.appendChild(shiftP);
-                    });
-                    dayCell.appendChild(shiftsContainer);
-                }
-                const today = new Date();
-                if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
-                    dayCell.classList.add('bg-blue-50');
-                    dayNumber.classList.add('bg-blue-500', 'text-white', 'rounded-full', 'w-5', 'h-5', 'flex', 'items-center', 'justify-center');
-                }
-                calendarGrid.appendChild(dayCell);
-            }
-
-            // --- Renderizar Vista de Lista (Móvil) ---
-            const today = new Date();
-            const todayString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            const shiftsThisMonth = allShifts.filter(s => {
-                const shiftDate = new Date(s.date + 'T00:00:00');
-                return shiftDate.getFullYear() === year && shiftDate.getMonth() === month;
-            });
-            const shiftsByDay = {};
-            shiftsThisMonth.forEach(s => {
-                if (!shiftsByDay[s.date]) {
-                    shiftsByDay[s.date] = [];
-                }
-                shiftsByDay[s.date].push(s);
-            });
-            const sortedDays = Object.keys(shiftsByDay).sort();
-            if (sortedDays.length === 0) {
-                calendarList.innerHTML = '<p class="text-center text-gray-500 py-8">No hay turnos asignados para este mes.</p>';
-            } else {
-                let listHtml = '';
-                sortedDays.forEach(dateString => {
-                    const dayDate = new Date(dateString + 'T00:00:00');
-                    const dayFormatted = dayDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric' });
-                    const principal = shiftsByDay[dateString].find(s => s.type === 'principal');
-                    const refuerzo = shiftsByDay[dateString].find(s => s.type === 'refuerzo');
-                    
-                    const isToday = dateString === todayString;
-                    const todayClasses = isToday ? 'bg-blue-50 border-l-4 border-blue-500 pl-3' : 'pl-4';
-
-                    listHtml += `<div class="py-3 ${todayClasses}">`;
-                    listHtml += `<h4 class="font-bold text-gray-800 capitalize">${dayFormatted} ${isToday ? '(Hoy)' : ''}</h4>`;
-                    if (principal) {
-                        listHtml += `<p class="text-sm"><span class="font-semibold text-red-600">Turno:</span> ${principal.name}</p>`;
-                    }
-                    if (refuerzo) {
-                        listHtml += `<p class="text-sm"><span class="font-semibold text-green-600">Refuerzo:</span> ${refuerzo.name}</p>`;
-                    }
-                    listHtml += '</div><hr class="border-gray-200">';
-                });
-                calendarList.innerHTML = listHtml;
-            }
-        }
 
         setFullScreenHeight();
         window.addEventListener('resize', setFullScreenHeight);
 
-        cargarFarmacias().then(() => {
-            setupCalendarModal(); // Setup calendar after data is loaded
-        });
-    });
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/farmacias-chajari/service-worker.js').then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        }, err => {
-          console.log('ServiceWorker registration failed: ', err);
-        });
-      });
-    }
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Farmacias de Turno en Chajarí | Horarios y Direcciones</title>
-    <meta name="description" content="Encuentra al instante la farmacia de turno y de refuerzo en Chajarí. Consulta direcciones, teléfonos y horarios actualizados. La guía más fácil y rápida.">
-    
-    <!-- Open Graph -->
-    <meta property="og:title" content="Farmacias de Turno en Chajarí">
-    <meta property="og:description" content="Encuentra al instante la farmacia de turno y de refuerzo en Chajarí. Direcciones y horarios actualizados.">
-    <meta property="og:url" content="https://maptiva.github.io/farmacias-chajari/index.html">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://maptiva.github.io/farmacias-chajari/icons/logo-farm_512.png">
-
-    <!-- Favicon -->
-    <link rel="icon" href="/farmacias-chajari/icons/logo-farm_192.png" type="image/png">
-    <link rel="apple-touch-icon" href="/farmacias-chajari/icons/logo-farm_192.png">
-    <link rel="icon" href="/farmacias-chajari/icons/logo-farm_512.png" sizes="512x512" type="image/png">
-
-    <link rel="manifest" href="/farmacias-chajari/manifest.json">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        #map {
-            height: 100%;
-            width: 100%;
-            z-index: 1;
-        }
-        .sidebar {
-            transition: transform 0.4s ease-in-out;
-        }
-        .pharmacy-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-        .on-duty {
-            border-left: 4px solid #ef4444;
-            background-color: #fef2f2;
-        }
-        .on-reinforcement {
-            border-left: 4px solid #22c55e;
-            background-color: #f0fdf4;
-        }
-        .custom-icon {
-            background: #3b82f6;
-            border-radius: 50%;
-            border: 2px solid white;
-        }
-        .duty-icon {
-            background: #ef4444;
-            border-radius: 50%;
-            border: 2px solid white;
-            animation: pulse 1.5s infinite;
-        }
-        .reinforcement-icon {
-            background: #22c55e;
-            border-radius: 50%;
-            border: 2px solid white;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        .mobile-menu {
-            transition: transform 0.3s ease-in-out;
-        }
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                height: 50vh;
-                flex-shrink: 0;
-            }
-            .sidebar.is-closed {
-                transform: translateX(-100%);
-            }
-            .map-wrapper {
-                padding: 0;
-                height: 50vh;
-            }
-            #map {
-                border-radius: 0;
-                height: 100%;
-            }
-            .mobile-menu {
-                transform: translateY(-100%);
-            }
-            .mobile-menu.is-open {
-                transform: translateY(0);
-            }
-        }
-        .leaflet-popup-content .accion-icono {
-            color: white !important;
-            font-size: 1.1rem; /* Ajusta este valor si es necesario */
-        }
-        .leaflet-control-info {
-            background: transparent !important;
-            border: none !important;
-        }
-        .leaflet-popup-content .bg-gray-300 .accion-icono {
-            color: #6b7280 !important; /* Este es el color gris-500 de Tailwind */
-        }
-        .leaflet-popup-close-button {
-            width: 24px !important;
-            height: 24px !important;
-            font-size: 20px !important;
-            line-height: 24px !important;
-        }
-    </style>
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      "name": "Farmacias de Turno en Chajarí",
-      "description": "Listado completo y actualizado de las farmacias en Chajarí, Entre Ríos, con información de turnos, horarios y contacto.",
-      "url": "https://maptiva.github.io/farmacias-chajari/index.html",
-      "hasPart": [
-        {
-          "@type": "Pharmacy",
-          "name": "David",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Doctor Casillas 640",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456523113",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7608872,
-            "longitude": -58.0045994
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Santa Teresita",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Urquiza 1565",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456419093",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.758079654163872,
-            "longitude": -57.985833471348847
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "De la Unión",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Siburu 1050",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7632569,
-            "longitude": -57.9841207
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Zordan",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Siburu 1125",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456473404",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7629527,
-            "longitude": -57.984979
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Barbieri",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "9 de Julio 3275",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456544576",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7589972,
-            "longitude": -57.9887353
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Berta",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Hipólito Yrigoyen 2926",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456426115",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7611568,
-            "longitude": -57.9810233
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Del Pueblo",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Sarmiento 2646",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456421050",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7575935,
-            "longitude": -57.9800221
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Científica",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida 9 de Julio NULL",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7499731,
-            "longitude": -57.979129
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Chajarí",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Entre Ríos 2985",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7596909,
-            "longitude": -57.9834487
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Urquiza",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Urquiza y 3 de Febrero",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456601747",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7590686,
-            "longitude": -57.9843432
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Restivo",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida 9 de Julio NULL",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7612744,
-            "longitude": -57.9913598
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Villegas",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida 9 de Julio 2191",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543435707589",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7506231,
-            "longitude": -57.9789439
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Zordan III",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida 1 de Mayo 2098",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7450677,
-            "longitude": -57.984032
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Zordan II",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Belgrano 2210",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456424214",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7506658,
-            "longitude": -57.9888734
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Santa Clara",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Belgrano 1787",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456420456",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7542167,
-            "longitude": -57.9852283
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Sol",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Sarmiento y Pancho Ramirez",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.755405702400978,
-            "longitude": -57.979551602117091
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        }
-      ]
-    }
-    </script>
-</head>
-<body class="font-sans bg-gray-50 overflow-hidden">
-    <div id="main-container" class="flex flex-col md:flex-row relative">
-        <!-- Sidebar -->
-        <div class="sidebar w-full md:w-96 bg-white shadow-lg z-20 flex flex-col">
-            <!-- Header Fijo -->
-            <div class="p-4 bg-blue-600 text-white sticky top-0 z-20 flex-shrink-0">
-                <div class="flex justify-between items-center">
-                    <h1 class="text-xl font-bold flex items-center">
-                        <img src="icons/icono_circ_250.png" alt="Logo de Farmacias Chajarí" class="h-8 mr-2">
-                        <span>Farmacias Chajarí</span>
-                    </h1>
-                    <div class="flex items-center space-x-4">
-                        <button id="open-calendar-modal" class="text-white focus:outline-none" title="Ver calendario de turnos">
-                            <i class="fas fa-calendar-alt text-xl"></i>
-                        </button>
-                        <button id="toggleSidebar" class="md:hidden text-white">
-                            <i class="fas fa-bars"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="mt-2 relative">
-                    <input type="text" id="searchInput" placeholder="Buscar farmacia..." 
-                           class="w-full p-2 rounded text-gray-800 focus:outline-none">
-                    <i class="fas fa-search absolute right-3 top-3 text-gray-500"></i>
-                </div>
-            </div>
-            
-            <!-- Lista con Scroll -->
-            <div class="overflow-y-auto flex-grow">
-                <div class="p-4">
-                    <div id="duty-header" class="mb-4">
-                        <!-- Contenido dinámico -->
-                    </div>
-                    <div id="pharmacyList" class="space-y-3">
-                        <!-- Contenido dinámico -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Menú "Más Información" para Escritorio (Acordeón) -->
-            <div class="p-2 border-t border-gray-200 md:block hidden sticky bottom-0 bg-white">
-                <div id="infoAccordionHeader" class="flex justify-between items-center cursor-pointer py-1">
-                    <h3 class="text-base font-semibold text-gray-700">Más Información</h3>
-                    <i id="infoAccordionIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
-                </div>
-                <div id="infoAccordionContent" class="hidden space-y-1 mt-1">
-                    <button id="aboutButton" class="block w-full text-left py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors duration-200">
-                        <i class="fas fa-info-circle w-5 mr-1"></i>Acerca de
-                    </button>                    
-                    <div class="pt-1">
-                        <h4 class="font-medium text-gray-700 text-sm mb-1">Contacto:</h4>
-                        <a href="mailto:maptiva.sig.app@gmail.com" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                            <i class="fas fa-envelope w-5 mr-1"></i>Email
-                        </a>
-                        <a href="https://docs.google.com/forms/d/e/1FAIpQLScnBA8grCuivLwv3sGBn1hDrpil83BmlCWBj6SLey9EydZTZg/viewform?usp=header" target="_blank" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                            <i class="fas fa-edit w-5 mr-1"></i>Formulario de Contacto
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pie de página -->
-            <div class="text-center text-xs text-gray-500 p-2 border-t">
-                Desarrollado por <a href="https://maptiva.github.io/maptiva/" target="_blank" class="font-bold text-blue-600 hover:underline">Maptiva</a>
-            </div>
-
-            <!-- Menú Móvil -->
-            <div id="mobileMenu" class="mobile-menu md:hidden fixed top-0 left-0 w-full bg-white shadow-lg z-30 hidden">
-                <div class="p-2 border-t border-gray-200">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-base font-semibold text-gray-700">Más Información</h3>
-                        <button id="closeMobileMenu" class="text-gray-700">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    <div class="space-y-1">
-                        <button id="mobileAboutButton" class="block w-full text-left py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors duration-200">
-                            <i class="fas fa-info-circle w-5 mr-1"></i>Acerca de
-                        </button>
-                        <div class="pt-1">
-                            <h4 class="font-medium text-gray-700 text-sm mb-1">Contacto:</h4>
-                            <a href="mailto:maptiva.sig.app@gmail.com" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                                <i class="fas fa-envelope w-5 mr-1"></i>Email
-                            </a>
-                            <a href="https://docs.google.com/forms/d/e/1FAIpQLScnBA8grCuivLwv3sGBn1hDrpil83BmlCWBj6SLey9EydZTZg/viewform?usp=header" target="_blank" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                                <i class="fas fa-edit w-5 mr-1"></i>Formulario de Contacto
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Modal Acerca de -->
-            <div id="aboutModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                    <div class="mt-3 text-center">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900">Acerca de Farmacias Chajarí</h3>
-                        <div class="mt-2 px-7 py-3">
-                            <p class="text-sm text-gray-500">
-                                Farmacias Chajarí es una herramienta desarrollada por <a href="https://maptiva.github.io/maptiva/" target="_blank" class="font-bold text-blue-600 hover:underline">Maptiva</a> para brindar a la comunidad un acceso rápido y sencillo a la información actualizada sobre las farmacias de la ciudad y sus turnos disponibles. Se recomienda confirmar siempre por teléfono antes de acudir.
-                            </p>
-                        </div>
-                        <div class="items-center px-4 py-3">
-                            <button id="closeModalButton" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                Cerrar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Contenedor del Mapa -->
-        <div class="map-wrapper flex-1 p-0 md:p-4">
-            <div id="map" class="shadow-md rounded-none md:rounded-lg"></div>
-        </div>
-    </div>
-
-    <!-- Info Modal -->
-    <div id="infoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full flex flex-col max-h-[85vh]">
-            <!-- Modal Header -->
-            <div class="flex-shrink-0 p-6 border-b border-gray-200">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-2xl font-bold">¿Cómo funciona el Portal?</h2>
-                    <button id="close-info-modal-x" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
-                </div>
-            </div>
-
-            <!-- Modal Body -->
-            <div class="overflow-y-auto p-6">
-                <h3 class="text-lg font-semibold">Horarios de Turno</h3>
-                <ul class="list-disc list-inside text-gray-700 space-y-1 mt-2">
-                    <li><strong>Farmacia de Turno:</strong> Atiende las 24 horas, desde las 8:00 AM de un día hasta las 8:00 AM del día siguiente.</li>
-                    <li><strong>Farmacia de Refuerzo:</strong> Brinda apoyo los días domingos y feriados, de 8:00 AM a 23:00 PM del mismo día.</li>
-                </ul>
-
-                <h3 class="text-lg font-semibold mt-4">Íconos del Mapa</h3>
-                <ul class="list-disc list-inside text-gray-700 space-y-1 mt-2">
-                    <li><span class="inline-block w-4 h-4 rounded-full bg-red-500 mr-2 align-middle"></span>Indica la <strong>Farmacia de Turno</strong> principal.</li>
-                    <li><span class="inline-block w-4 h-4 rounded-full bg-green-500 mr-2 align-middle"></span>Indica la <strong>Farmacia de Refuerzo</strong> activa.</li>
-                    <li><span class="inline-block w-4 h-4 rounded-full bg-blue-500 mr-2 align-middle"></span>Indica las demás farmacias.</li>
-                </ul>
-
-                <h3 class="text-lg font-semibold mt-4">Funcionalidades</h3>
-                <ul class="list-disc list-inside text-gray-700 space-y-1 mt-2">
-                    <li><strong>Llamar / WhatsApp:</strong> Haz clic en los botones para contactar directamente a la farmacia.</li>
-                    <li><strong>Cómo Llegar:</strong> Abrirá Google Maps con la ruta desde tu ubicación actual.</li>
-                </ul>
-
-                <h3 class="text-lg font-semibold mt-4">¡Instala la Aplicación!</h3>
-                <p class="text-gray-700 mt-2">Para un acceso más rápido, puedes añadir este portal a la pantalla de inicio de tu celular. Busca la opción "Añadir a pantalla de inicio" o "Instalar aplicación" en el menú de tu navegador.</p>
-
-                <h3 class="text-lg font-semibold mt-4">Colaboración</h3>
-                <p class="text-gray-700 mt-2">Este es un proyecto colaborativo. Si encuentras un error o tienes una sugerencia, puedes usar el "Formulario de Contacto" en el menú "Más Información".</p>
-            </div>
-
-            <!-- Modal Footer -->
-            <div class="flex-shrink-0 p-6 border-t border-gray-200 text-center">
-                <button id="close-info-modal" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Entendido</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal del Calendario -->
-    <div id="calendar-modal" class="hidden fixed inset-0 bg-gray-800 bg-opacity-60 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div class="relative mx-auto p-4 md:p-5 border w-11/12 max-w-sm md:max-w-3xl shadow-lg rounded-md bg-white">
-            <!-- Cabecera del Modal -->
-            <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-                <button id="prev-month" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Mes anterior">
-                    <i class="fas fa-chevron-left text-gray-600"></i>
-                </button>
-                <h2 id="calendar-month-year" class="text-lg md:text-xl font-bold text-gray-800 text-center"></h2>
-                <button id="next-month" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Mes siguiente">
-                    <i class="fas fa-chevron-right text-gray-600"></i>
-                </button>
-                <button id="close-calendar-modal" class="absolute top-3 right-3 p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Cerrar">
-                    <i class="fas fa-times text-gray-600"></i>
-                </button>
-            </div>
-            <!-- Contenido del Modal (Calendario) -->
-            <div class="mt-3">
-                <!-- Encabezados para Móvil -->
-                <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs mb-2 text-gray-500 md:hidden">
-                    <div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div>
-                </div>
-                <!-- Encabezados para Escritorio -->
-                <div class="hidden md:grid grid-cols-7 gap-2 text-center font-bold text-sm mb-2 text-gray-600">
-                    <div>Lunes</div><div>Martes</div><div>Miércoles</div><div>Jueves</div><div>Viernes</div><div>Sábado</div><div>Domingo</div>
-                </div>
-                
-                <!-- Vista de Grilla para Escritorio -->
-                <div id="calendar-grid" class="hidden md:grid grid-cols-7 gap-1 md:gap-2">
-                    <!-- Los días del calendario se generarán aquí -->
-                </div>
-
-                <!-- Vista de Lista para Móvil -->
-                <div id="calendar-list" class="block md:hidden h-96 overflow-y-auto pr-2">
-                    <!-- El contenido de la lista se generará aquí -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyC62b1ItiE0IzYKc8Y3tDIT5EXa0abUH0c",
-        authDomain: "farmacias-chajari.firebaseapp.com",
-        projectId: "farmacias-chajari",
-        storageBucket: "farmacias-chajari.appspot.com",
-        messagingSenderId: "480200517460",
-        appId: "1:480200517460:web:4cc22cd97a7b292e200ac1"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    document.addEventListener('DOMContentLoaded', function() {
-        let allPharmacies = [];
-        let allShifts = [];
-        let currentDate = new Date();
-        const pharmacyList = document.getElementById('pharmacyList');
-        setFullScreenHeight();
-        const map = L.map('map', {minZoom: 13});
-        const markers = L.layerGroup().addTo(map);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        function setFullScreenHeight() {
-            const mainContainer = document.getElementById('main-container');
-            if (mainContainer) {
-                mainContainer.style.height = `${window.innerHeight}px`;
-            }
-        }
-
-        function getDutyInfo() {
-            const now = new Date();
-            const hour = now.getHours();
-            
-            let principalDate = new Date(now);
-            if (hour < 8) {
-                principalDate.setDate(principalDate.getDate() - 1);
-            }
-            const principalDateString = `${principalDate.getFullYear()}-${String(principalDate.getMonth() + 1).padStart(2, '0')}-${String(principalDate.getDate()).padStart(2, '0')}`;
-
-            const today = new Date();
-            const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            
-            const isReinforcementActive = hour >= 8 && hour < 23;
-
-            return { principalDateString, todayDateString, isReinforcementActive };
-        }
-
-        async function cargarFarmacias() {
-            const { principalDateString, todayDateString, isReinforcementActive } = getDutyInfo();
-            try {
-                const querySnapshot = await getDocs(collection(db, "farmacias"));
-                allPharmacies = [];
-                allShifts = []; // Limpiar turnos antes de cargar
-                querySnapshot.forEach((doc) => {
-                    const farmacia = doc.data();
-                    farmacia.id = doc.id;
-                    farmacia.dutyType = null;
-
-                    if (farmacia.turnos && Array.isArray(farmacia.turnos)) {
-                        // Llenar la lista de todos los turnos para el calendario
-                        farmacia.turnos.forEach(turno => {
-                            allShifts.push({
-                                date: turno.fecha,
-                                name: farmacia.nombre,
-                                type: turno.tipo
-                            });
-                        });
-
-                        const turnoPrincipal = farmacia.turnos.find(t => t.fecha === principalDateString && t.tipo === 'principal');
-                        if (turnoPrincipal) {
-                            farmacia.dutyType = 'principal';
-                        }
-
-                        if (isReinforcementActive) {
-                            const turnoRefuerzo = farmacia.turnos.find(t => t.fecha === todayDateString && t.tipo === 'refuerzo');
-                            if (turnoRefuerzo) {
-                                if (!farmacia.dutyType) {
-                                   farmacia.dutyType = 'refuerzo';
-                                }
-                            }
-                        }
-                    }
-                    allPharmacies.push(farmacia);
-                });
-                renderPharmacies(allPharmacies);
-                
-                if (markers.getLayers().length > 0) {
-                    const featureGroup = L.featureGroup(markers.getLayers());
-                    map.fitBounds(featureGroup.getBounds().pad(0.1));
-                } else {
-                    map.setView([-30.7600, -57.9830], 14);
-                }
-
-            } catch (error) {
-                console.error("Error al cargar datos de Firestore:", error);
-                pharmacyList.innerHTML = '<p class="text-red-500">Error al cargar las farmacias.</p>';
-            }
-        }
-
-        function renderPharmacies(pharmacies) {
-            pharmacyList.innerHTML = '';
-            markers.clearLayers();
-            const dutyOrder = { 'principal': 2, 'refuerzo': 1, 'null': 0 };
-            pharmacies.sort((a, b) => (dutyOrder[b.dutyType] || 0) - (dutyOrder[a.dutyType] || 0));
-            updateDutyHeader(pharmacies.filter(p => p.dutyType));
-            pharmacies.forEach(pharmacy => {
-                if (pharmacy.coordenadas && typeof pharmacy.coordenadas.latitude === 'number') {
-                    createMarker(pharmacy);
-                    pharmacyList.appendChild(createPharmacyCard(pharmacy));
-                } else {
-                    console.warn('Omitiendo farmacia sin coordenadas válidas:', pharmacy.nombre);
-                }
-            });
-        }
-        
-        function updateDutyHeader(dutyPharmacies) {
-            const dutyHeader = document.getElementById('duty-header');
-            if (dutyPharmacies.length === 0) {
-                dutyHeader.innerHTML = '<p class="text-center text-gray-500">No hay farmacias de turno en este momento.</p>';
-                return;
-            }
-            let headerHtml = '';
-            const principal = dutyPharmacies.find(p => p.dutyType === 'principal');
-            const refuerzos = dutyPharmacies.filter(p => p.dutyType === 'refuerzo');
-            if(principal) {
-                headerHtml += '<div class="flex items-center mb-2"><div class="w-3 h-3 rounded-full bg-red-500 mr-2 animate-pulse"></div><span class="text-sm font-medium">Farmacia de Turno <span class="font-normal text-xs text-gray-600">(8:00 a 8:00 hs)</span></span></div>';
-            }
-            if(refuerzos.length > 0) {
-                headerHtml += '<div class="flex items-center mt-3 mb-2"><div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div><span class="text-sm font-medium">Farmacia de Refuerzo <span class="font-normal text-xs text-gray-600">(8:00 a 23:00 hs)</span></span></div>';
-            }
-            dutyHeader.innerHTML = headerHtml;
-        }
-
-        function generarBotonesDeAccion(farmacia) {
-            let botonesHtml = '<div class="mt-2 flex items-center gap-2">';
-            if (farmacia.whatsapp) {
-                const whatsappNumber = farmacia.whatsapp.replace(/\s|-/g, '');
-                botonesHtml += `<a href="https://wa.me/${whatsappNumber}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors" title="Enviar WhatsApp"><i class="fab fa-whatsapp accion-icono"></i></a>`;
-            } else {
-                botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="WhatsApp no disponible"><i class="fab fa-whatsapp accion-icono"></i></span>`;
-            }
-            if (farmacia.telefono) {
-                botonesHtml += `<a href="tel:${farmacia.telefono}" class="flex items-center justify-center w-8 h-8 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors" title="Llamar"><i class="fas fa-phone accion-icono"></i></a>`;
-            } else {
-                botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="Teléfono no disponible"><i class="fas fa-phone accion-icono"></i></span>`;
-            }
-            if (farmacia.coordenadas && farmacia.coordenadas.latitude && farmacia.coordenadas.longitude) {
-                botonesHtml += `<a href="https://www.google.com/maps/dir/?api=1&destination=${farmacia.coordenadas.latitude},${farmacia.coordenadas.longitude}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors" title="Cómo llegar"><i class="fas fa-map-marker-alt accion-icono"></i></a>`;
-            } else {
-                 botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="Ubicación no disponible"><i class="fas fa-map-marker-alt accion-icono"></i></span>`;
-            }
-            if (farmacia.sitio_web) {
-                botonesHtml += `<a href="${farmacia.sitio_web}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors" title="Sitio Web"><i class="fas fa-globe accion-icono"></i></a>`;
-            }
-            if (farmacia.instagram) {
-                botonesHtml += `<a href="${farmacia.instagram}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-pink-500 to-yellow-500 text-white rounded-md hover:opacity-90 transition-opacity" title="Instagram"><i class="fab fa-instagram accion-icono"></i></a>`;
-            }
-            if (farmacia.facebook) {
-                botonesHtml += `<a href="${farmacia.facebook}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition-colors" title="Facebook"><i class="fab fa-facebook accion-icono"></i></a>`;
-            }
-            botonesHtml += '</div>';
-            return botonesHtml;
-        }
-
-        function createMarker(pharmacy) {
-            const { latitude, longitude } = pharmacy.coordenadas;
-            const iconHtml = '<i class="fas fa-plus text-white text-xs absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>';
-            let icon;
-            if (pharmacy.dutyType === 'principal') {
-                icon = L.divIcon({ className: 'duty-icon', html: iconHtml, iconSize: [30, 30] });
-            } else if (pharmacy.dutyType === 'refuerzo') {
-                icon = L.divIcon({ className: 'reinforcement-icon', html: iconHtml, iconSize: [28, 28] });
-            } else {
-                icon = L.divIcon({ className: 'custom-icon', html: iconHtml, iconSize: [24, 24] });
-            }
-            const marker = L.marker([latitude, longitude], { icon }).addTo(markers);
-            let dutyText = '', titleColor = 'text-blue-500';
-            if (pharmacy.dutyType === 'principal') {
-                dutyText = '<div class="text-red-500 font-bold text-xs mt-1">DE TURNO</div>';
-                titleColor = 'text-red-500';
-            }
-            if (pharmacy.dutyType === 'refuerzo') {
-                dutyText = '<div class="text-green-600 font-bold text-xs mt-1">DE REFUERZO</div>';
-                titleColor = 'text-green-600';
-            }
-            marker.bindPopup(`
-                <div class="font-bold text-lg ${titleColor}">
-                    ${pharmacy.categoria ? `<span class="text-sm font-normal text-gray-500">${pharmacy.categoria}: </span>` : ''}
-                    ${pharmacy.nombre}
-                </div>
-                <div class="text-sm">${pharmacy.direccion || ''}</div>
-                <div class="text-sm"><i class="fas fa-clock text-blue-400 mr-1"></i>Horario: ${pharmacy.horario || '<span class="text-gray-500">No disponible</span>'}</div>
-                ${dutyText}
-                ${generarBotonesDeAccion(pharmacy)}
-            `);
-            marker.on('click', () => {
-                const card = document.getElementById(`pharmacy-${pharmacy.id}`);
-                if (card) {
-                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    card.classList.add('bg-blue-100');
-                    setTimeout(() => card.classList.remove('bg-blue-100'), 1500);
-                }
-            });
-            return marker;
-        }
-
-        function createPharmacyCard(pharmacy) {
-            const card = document.createElement('div');
-            card.id = `pharmacy-${pharmacy.id}`;
-            let cardClass = 'pharmacy-card p-3 rounded-lg border border-gray-200 cursor-pointer transition-all';
-            let titleColor = 'text-blue-600';
-            let badgeHtml = '';
-            if (pharmacy.dutyType === 'principal') {
-                cardClass += ' on-duty';
-                titleColor = 'text-red-600';
-                badgeHtml = '<span class="ml-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-semibold">DE TURNO</span>';
-            } else if (pharmacy.dutyType === 'refuerzo') {
-                cardClass += ' on-reinforcement';
-                titleColor = 'text-green-600';
-                badgeHtml = '<span class="ml-2 text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-semibold">DE REFUERZO</span>';
-            }
-            card.className = cardClass;
-            card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <h3 class="font-bold text-lg ${titleColor}">
-                            ${pharmacy.categoria ? `<span class="text-sm font-normal text-gray-500">${pharmacy.categoria}: </span>` : ''}
-                            ${pharmacy.nombre}${badgeHtml}
-                        </h3>
-                        <p class="text-sm text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-blue-400 mr-1"></i>${pharmacy.direccion || 'N/A'}</p>
-                        <p class="text-sm text-gray-600"><i class="fas fa-phone text-blue-400 mr-1"></i>${pharmacy.telefono || 'N/A'}</p>
-                        <p class="text-sm text-gray-600"><i class="fas fa-clock text-blue-400 mr-1"></i>Horario: ${pharmacy.horario || '<span class="text-gray-500">No disponible</span>'}</p>
-                        ${generarBotonesDeAccion(pharmacy)}
-                    </div>
-                </div>
-            `;
-            card.addEventListener('click', () => {
-                const { latitude, longitude } = pharmacy.coordenadas;
-                map.setView([latitude, longitude], 17);
-                markers.eachLayer(layer => {
-                    if (layer.getLatLng().lat === latitude && layer.getLatLng().lng === longitude) layer.openPopup();
-                });
-            });
-            return card;
-        }
-
-        document.getElementById('searchInput').addEventListener('input', e => {
-            const searchTerm = e.target.value.toLowerCase();
-            const filtered = allPharmacies.filter(p => 
-                (p.nombre && p.nombre.toLowerCase().includes(searchTerm)) ||
-                (p.direccion && p.direccion.toLowerCase().includes(searchTerm))
-            );
-            renderPharmacies(filtered);
-        });
-
-        const infoAccordionHeader = document.getElementById('infoAccordionHeader');
-        const infoAccordionContent = document.getElementById('infoAccordionContent');
-        const infoAccordionIcon = document.getElementById('infoAccordionIcon');
-        infoAccordionHeader.addEventListener('click', () => {
-            infoAccordionContent.classList.toggle('hidden');
-            infoAccordionIcon.classList.toggle('rotate-180');
-        });
-
-        const aboutButton = document.getElementById('aboutButton');
-        const mobileAboutButton = document.getElementById('mobileAboutButton');
-        const aboutModal = document.getElementById('aboutModal');
-        const closeModalButton = document.getElementById('closeModalButton');
-        aboutButton.addEventListener('click', () => aboutModal.classList.remove('hidden'));
-        closeModalButton.addEventListener('click', () => aboutModal.classList.add('hidden'));
-        aboutModal.addEventListener('click', (e) => { if (e.target === aboutModal) aboutModal.classList.add('hidden'); });
-
-        const sidebar = document.querySelector('.sidebar');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const toggleSidebarButton = document.getElementById('toggleSidebar');
-        const closeMobileMenuButton = document.getElementById('closeMobileMenu');
-        function abrirMobileMenu() { mobileMenu.classList.remove('hidden'); mobileMenu.classList.add('is-open'); }
-        function cerrarMobileMenu() { mobileMenu.classList.add('hidden'); mobileMenu.classList.remove('is-open'); }
-        mobileAboutButton.addEventListener('click', () => { aboutModal.classList.remove('hidden'); cerrarMobileMenu(); });
-        closeMobileMenuButton.addEventListener('click', () => cerrarMobileMenu());
-        toggleSidebarButton.addEventListener('click', () => {
-            const isSidebarPanelClosed = sidebar.classList.contains('is-closed');
-            if (isSidebarPanelClosed) {
-                sidebar.classList.remove('is-closed');
-                setTimeout(() => map.invalidateSize(), 400);
-            } else {
-                if (mobileMenu.classList.contains('hidden')) { abrirMobileMenu(); } else { cerrarMobileMenu(); }
-            }
-        });
-
-        const infoModal = document.getElementById('infoModal');
-        const closeInfoModalButton = document.getElementById('close-info-modal');
-        const closeInfoModalXButton = document.getElementById('close-info-modal-x');
-        function showInfoModal() { infoModal.classList.remove('hidden'); }
-        function hideInfoModal() { infoModal.classList.add('hidden'); }
-        closeInfoModalButton.addEventListener('click', hideInfoModal);
-        closeInfoModalXButton.addEventListener('click', hideInfoModal);
-        infoModal.addEventListener('click', (e) => { if (e.target === infoModal) hideInfoModal(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) hideInfoModal(); });
-
-        const InfoControl = L.Control.extend({
-            onAdd: function(map) {
-                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom leaflet-control-info');
-                container.innerHTML = '<button class="bg-blue-600 text-white w-10 h-10 rounded-full shadow-md hover:bg-blue-700 focus:outline-none flex items-center justify-center" title="Información"><i class="fas fa-info text-lg"></i></button>';
-                container.style.width = '40px'; container.style.height = '40px'; container.style.display = 'flex'; container.style.alignItems = 'center'; container.style.justifyContent = 'center'; container.style.cursor = 'pointer';
-                L.DomEvent.on(container, 'click', showInfoModal);
-                return container;
-            },
-            onRemove: function(map) {}
-        });
-        new InfoControl({ position: 'bottomleft' }).addTo(map);
-
-        // --- LÓGICA DEL CALENDARIO MODAL ---
-        function setupCalendarModal() {
-            const calendarModal = document.getElementById('calendar-modal');
-            const openBtn = document.getElementById('open-calendar-modal');
-            const closeBtn = document.getElementById('close-calendar-modal');
-            const prevMonthBtn = document.getElementById('prev-month');
-            const nextMonthBtn = document.getElementById('next-month');
-
-            openBtn.addEventListener('click', () => {
-                currentDate = new Date(); // Reset to current month on open
-                renderCalendar(currentDate);
-                calendarModal.classList.remove('hidden');
-            });
-
-            const closeModal = () => calendarModal.classList.add('hidden');
-            closeBtn.addEventListener('click', closeModal);
-            calendarModal.addEventListener('click', (e) => {
-                if (e.target.id === 'calendar-modal') closeModal();
-            });
-
-            prevMonthBtn.addEventListener('click', () => {
-                currentDate.setMonth(currentDate.getMonth() - 1);
-                renderCalendar(currentDate);
-            });
-
-            nextMonthBtn.addEventListener('click', () => {
-                currentDate.setMonth(currentDate.getMonth() + 1);
-                renderCalendar(currentDate);
-            });
-        }
-
-        function renderCalendar(date) {
-            const calendarGrid = document.getElementById('calendar-grid');
-            const calendarList = document.getElementById('calendar-list');
-            const monthYearTitle = document.getElementById('calendar-month-year');
-            calendarGrid.innerHTML = '';
-            calendarList.innerHTML = '';
-
-            const month = date.getMonth();
-            const year = date.getFullYear();
-
-            monthYearTitle.textContent = date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
-
-            const firstDayOfMonth = new Date(year, month, 1);
-            const lastDayOfMonth = new Date(year, month + 1, 0);
-            const daysInMonth = lastDayOfMonth.getDate();
-            const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // 0 = Lunes
-
-            // --- Renderizar Vista de Grilla (Escritorio) ---
-            for (let i = 0; i < startDayOfWeek; i++) {
-                calendarGrid.appendChild(document.createElement('div'));
-            }
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayCell = document.createElement('div');
-                dayCell.className = 'p-1 md:p-1.5 text-xs border border-gray-200 rounded-md flex flex-col h-24 md:h-28 overflow-hidden';
-                const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const shiftsForDay = allShifts.filter(s => s.date === dateString);
-                const dayNumber = document.createElement('span');
-                dayNumber.className = 'font-bold self-start mb-1';
-                dayNumber.textContent = day;
-                dayCell.appendChild(dayNumber);
-                if (shiftsForDay.length > 0) {
-                    const shiftsContainer = document.createElement('div');
-                    shiftsContainer.className = 'overflow-y-auto text-left';
-                    shiftsForDay.sort((a, b) => a.type === 'principal' ? -1 : 1).forEach(shift => {
-                        const shiftP = document.createElement('p');
-                        shiftP.textContent = shift.name;
-                        shiftP.className = 'break-words';
-                        if (shift.type === 'principal') {
-                            shiftP.classList.add('font-bold', 'text-red-600');
-                        } else if (shift.type === 'refuerzo') {
-                            shiftP.classList.add('font-semibold', 'text-green-600');
-                        }
-                        shiftsContainer.appendChild(shiftP);
-                    });
-                    dayCell.appendChild(shiftsContainer);
-                }
-                const today = new Date();
-                if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
-                    dayCell.classList.add('bg-blue-50');
-                    dayNumber.classList.add('bg-blue-500', 'text-white', 'rounded-full', 'w-5', 'h-5', 'flex', 'items-center', 'justify-center');
-                }
-                calendarGrid.appendChild(dayCell);
-            }
-
-            // --- Renderizar Vista de Lista (Móvil) ---
-            const shiftsThisMonth = allShifts.filter(s => {
-                const shiftDate = new Date(s.date + 'T00:00:00');
-                return shiftDate.getFullYear() === year && shiftDate.getMonth() === month;
-            });
-            const shiftsByDay = {};
-            shiftsThisMonth.forEach(s => {
-                if (!shiftsByDay[s.date]) {
-                    shiftsByDay[s.date] = [];
-                }
-                shiftsByDay[s.date].push(s);
-            });
-            const sortedDays = Object.keys(shiftsByDay).sort();
-            if (sortedDays.length === 0) {
-                calendarList.innerHTML = '<p class="text-center text-gray-500 py-8">No hay turnos asignados para este mes.</p>';
-            } else {
-                let listHtml = '';
-                sortedDays.forEach(dateString => {
-                    const dayDate = new Date(dateString + 'T00:00:00');
-                    const dayFormatted = dayDate.toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric' });
-                    const principal = shiftsByDay[dateString].find(s => s.type === 'principal');
-                    const refuerzo = shiftsByDay[dateString].find(s => s.type === 'refuerzo');
-
-                    listHtml += '<div class="py-2">';
-                    listHtml += `<h4 class="font-bold text-gray-800 capitalize">${dayFormatted}</h4>`;
-                    if (principal) {
-                        listHtml += `<p class="text-sm"><span class="font-semibold text-red-600">Turno:</span> ${principal.name}</p>`;
-                    }
-                    if (refuerzo) {
-                        listHtml += `<p class="text-sm"><span class="font-semibold text-green-600">Refuerzo:</span> ${refuerzo.name}</p>`;
-                    }
-                    listHtml += '</div><hr class="border-gray-200">';
-                });
-                calendarList.innerHTML = listHtml;
-            }
-        }
-
-        setFullScreenHeight();
-        window.addEventListener('resize', setFullScreenHeight);
-
-        cargarFarmacias().then(() => {
-            setupCalendarModal(); // Setup calendar after data is loaded
-        });
-    });
-
-    if ('serviceWorker' in navigator) {
-      window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/farmacias-chajari/service-worker.js').then(registration => {
-          console.log('ServiceWorker registration successful with scope: ', registration.scope);
-        }, err => {
-          console.log('ServiceWorker registration failed: ', err);
-        });
-      });
-    }
-</script>
-</body>
-</html><!DOCTYPE html>
-<html lang="es">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Farmacias de Turno en Chajarí | Horarios y Direcciones</title>
-    <meta name="description" content="Encuentra al instante la farmacia de turno y de refuerzo en Chajarí. Consulta direcciones, teléfonos y horarios actualizados. La guía más fácil y rápida.">
-    
-    <!-- Open Graph -->
-    <meta property="og:title" content="Farmacias de Turno en Chajarí">
-    <meta property="og:description" content="Encuentra al instante la farmacia de turno y de refuerzo en Chajarí. Direcciones y horarios actualizados.">
-    <meta property="og:url" content="https://maptiva.github.io/farmacias-chajari/index.html">
-    <meta property="og:type" content="website">
-    <meta property="og:image" content="https://maptiva.github.io/farmacias-chajari/icons/logo-farm_512.png">
-
-    <!-- Favicon -->
-    <link rel="icon" href="/farmacias-chajari/icons/logo-farm_192.png" type="image/png">
-    <link rel="apple-touch-icon" href="/farmacias-chajari/icons/logo-farm_192.png">
-    <link rel="icon" href="/farmacias-chajari/icons/logo-farm_512.png" sizes="512x512" type="image/png">
-
-    <link rel="manifest" href="/farmacias-chajari/manifest.json">
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <style>
-        #map {
-            height: 100%;
-            width: 100%;
-            z-index: 1;
-        }
-        .sidebar {
-            transition: transform 0.4s ease-in-out;
-        }
-        .pharmacy-card:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1);
-        }
-        .on-duty {
-            border-left: 4px solid #ef4444;
-            background-color: #fef2f2;
-        }
-        .on-reinforcement {
-            border-left: 4px solid #22c55e;
-            background-color: #f0fdf4;
-        }
-        .custom-icon {
-            background: #3b82f6;
-            border-radius: 50%;
-            border: 2px solid white;
-        }
-        .duty-icon {
-            background: #ef4444;
-            border-radius: 50%;
-            border: 2px solid white;
-            animation: pulse 1.5s infinite;
-        }
-        .reinforcement-icon {
-            background: #22c55e;
-            border-radius: 50%;
-            border: 2px solid white;
-        }
-        @keyframes pulse {
-            0% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
-            70% { transform: scale(1.1); box-shadow: 0 0 0 10px rgba(239, 68, 68, 0); }
-            100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
-        }
-        .mobile-menu {
-            transition: transform 0.3s ease-in-out;
-        }
-        @media (max-width: 768px) {
-            .sidebar {
-                width: 100%;
-                height: 50vh;
-                flex-shrink: 0;
-            }
-            .sidebar.is-closed {
-                transform: translateX(-100%);
-            }
-            .map-wrapper {
-                padding: 0;
-                height: 50vh;
-            }
-            #map {
-                border-radius: 0;
-                height: 100%;
-            }
-            .mobile-menu {
-                transform: translateY(-100%);
-            }
-            .mobile-menu.is-open {
-                transform: translateY(0);
-            }
-        }
-        .leaflet-popup-content .accion-icono {
-            color: white !important;
-            font-size: 1.1rem; /* Ajusta este valor si es necesario */
-        }
-        .leaflet-control-info {
-            background: transparent !important;
-            border: none !important;
-        }
-        .leaflet-popup-content .bg-gray-300 .accion-icono {
-            color: #6b7280 !important; /* Este es el color gris-500 de Tailwind */
-        }
-        .leaflet-popup-close-button {
-            width: 24px !important;
-            height: 24px !important;
-            font-size: 20px !important;
-            line-height: 24px !important;
-        }
-    </style>
-    <script type="application/ld+json">
-    {
-      "@context": "https://schema.org",
-      "@type": "CollectionPage",
-      "name": "Farmacias de Turno en Chajarí",
-      "description": "Listado completo y actualizado de las farmacias en Chajarí, Entre Ríos, con información de turnos, horarios y contacto.",
-      "url": "https://maptiva.github.io/farmacias-chajari/index.html",
-      "hasPart": [
-        {
-          "@type": "Pharmacy",
-          "name": "David",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Doctor Casillas 640",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456523113",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7608872,
-            "longitude": -58.0045994
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Santa Teresita",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Urquiza 1565",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456419093",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.758079654163872,
-            "longitude": -57.985833471348847
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "De la Unión",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Siburu 1050",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7632569,
-            "longitude": -57.9841207
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Zordan",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Siburu 1125",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456473404",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7629527,
-            "longitude": -57.984979
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Barbieri",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "9 de Julio 3275",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456544576",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7589972,
-            "longitude": -57.9887353
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Berta",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Hipólito Yrigoyen 2926",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456426115",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7611568,
-            "longitude": -57.9810233
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Del Pueblo",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Sarmiento 2646",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456421050",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7575935,
-            "longitude": -57.9800221
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Científica",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida 9 de Julio NULL",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7499731,
-            "longitude": -57.979129
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Chajarí",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Entre Ríos 2985",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7596909,
-            "longitude": -57.9834487
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Urquiza",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Urquiza y 3 de Febrero",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456601747",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7590686,
-            "longitude": -57.9843432
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Restivo",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida 9 de Julio NULL",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7612744,
-            "longitude": -57.9913598
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Villegas",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida 9 de Julio 2191",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543435707589",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7506231,
-            "longitude": -57.9789439
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Zordan III",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida 1 de Mayo 2098",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7450677,
-            "longitude": -57.984032
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Zordan II",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Belgrano 2210",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456424214",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7506658,
-            "longitude": -57.9888734
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Santa Clara",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Avenida Belgrano 1787",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "telephone": "+543456420456",
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.7542167,
-            "longitude": -57.9852283
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        },
-        {
-          "@type": "Pharmacy",
-          "name": "Sol",
-          "address": {
-            "@type": "PostalAddress",
-            "streetAddress": "Sarmiento y Pancho Ramirez",
-            "addressLocality": "Chajarí",
-            "addressRegion": "Entre Ríos",
-            "postalCode": "3228"
-          },
-          "geo": {
-            "@type": "GeoCoordinates",
-            "latitude": -30.755405702400978,
-            "longitude": -57.979551602117091
-          },
-          "url": "https://maptiva.github.io/farmacias-chajari/index.html"
-        }
-      ]
-    }
-    </script>
-</head>
-<body class="font-sans bg-gray-50 overflow-hidden">
-    <div id="main-container" class="flex flex-col md:flex-row relative">
-        <!-- Sidebar -->
-        <div class="sidebar w-full md:w-96 bg-white shadow-lg z-20 flex flex-col">
-            <!-- Header Fijo -->
-            <div class="p-4 bg-blue-600 text-white sticky top-0 z-20 flex-shrink-0">
-                <div class="flex justify-between items-center">
-                    <h1 class="text-xl font-bold flex items-center">
-                        <img src="icons/icono_circ_250.png" alt="Logo de Farmacias Chajarí" class="h-8 mr-2">
-                        <span>Farmacias Chajarí</span>
-                    </h1>
-                    <div class="flex items-center space-x-4">
-                        <button id="open-calendar-modal" class="text-white focus:outline-none" title="Ver calendario de turnos">
-                            <i class="fas fa-calendar-alt text-xl"></i>
-                        </button>
-                        <button id="toggleSidebar" class="md:hidden text-white">
-                            <i class="fas fa-bars"></i>
-                        </button>
-                    </div>
-                </div>
-                <div class="mt-2 relative">
-                    <input type="text" id="searchInput" placeholder="Buscar farmacia..." 
-                           class="w-full p-2 rounded text-gray-800 focus:outline-none">
-                    <i class="fas fa-search absolute right-3 top-3 text-gray-500"></i>
-                </div>
-            </div>
-            
-            <!-- Lista con Scroll -->
-            <div class="overflow-y-auto flex-grow">
-                <div class="p-4">
-                    <div id="duty-header" class="mb-4">
-                        <!-- Contenido dinámico -->
-                    </div>
-                    <div id="pharmacyList" class="space-y-3">
-                        <!-- Contenido dinámico -->
-                    </div>
-                </div>
-            </div>
-
-            <!-- Menú "Más Información" para Escritorio (Acordeón) -->
-            <div class="p-2 border-t border-gray-200 md:block hidden sticky bottom-0 bg-white">
-                <div id="infoAccordionHeader" class="flex justify-between items-center cursor-pointer py-1">
-                    <h3 class="text-base font-semibold text-gray-700">Más Información</h3>
-                    <i id="infoAccordionIcon" class="fas fa-chevron-down transition-transform duration-300"></i>
-                </div>
-                <div id="infoAccordionContent" class="hidden space-y-1 mt-1">
-                    <button id="aboutButton" class="block w-full text-left py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors duration-200">
-                        <i class="fas fa-info-circle w-5 mr-1"></i>Acerca de
-                    </button>                    
-                    <div class="pt-1">
-                        <h4 class="font-medium text-gray-700 text-sm mb-1">Contacto:</h4>
-                        <a href="mailto:maptiva.sig.app@gmail.com" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                            <i class="fas fa-envelope w-5 mr-1"></i>Email
-                        </a>
-                        <a href="https://docs.google.com/forms/d/e/1FAIpQLScnBA8grCuivLwv3sGBn1hDrpil83BmlCWBj6SLey9EydZTZg/viewform?usp=header" target="_blank" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                            <i class="fas fa-edit w-5 mr-1"></i>Formulario de Contacto
-                        </a>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Pie de página -->
-            <div class="text-center text-xs text-gray-500 p-2 border-t">
-                Desarrollado por <a href="https://maptiva.github.io/maptiva/" target="_blank" class="font-bold text-blue-600 hover:underline">Maptiva</a>
-            </div>
-
-            <!-- Menú Móvil -->
-            <div id="mobileMenu" class="mobile-menu md:hidden fixed top-0 left-0 w-full bg-white shadow-lg z-30 hidden">
-                <div class="p-2 border-t border-gray-200">
-                    <div class="flex justify-between items-center mb-2">
-                        <h3 class="text-base font-semibold text-gray-700">Más Información</h3>
-                        <button id="closeMobileMenu" class="text-gray-700">
-                            <i class="fas fa-times"></i>
-                        </button>
-                    </div>
-                    <div class="space-y-1">
-                        <button id="mobileAboutButton" class="block w-full text-left py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors duration-200">
-                            <i class="fas fa-info-circle w-5 mr-1"></i>Acerca de
-                        </button>
-                        <div class="pt-1">
-                            <h4 class="font-medium text-gray-700 text-sm mb-1">Contacto:</h4>
-                            <a href="mailto:maptiva.sig.app@gmail.com" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                                <i class="fas fa-envelope w-5 mr-1"></i>Email
-                            </a>
-                            <a href="https://docs.google.com/forms/d/e/1FAIpQLScnBA8grCuivLwv3sGBn1hDrpil83BmlCWBj6SLey9EydZTZg/viewform?usp=header" target="_blank" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
-                                <i class="fas fa-edit w-5 mr-1"></i>Formulario de Contacto
-                            </a>
-                        </div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Modal Acerca de -->
-            <div id="aboutModal" class="fixed inset-0 bg-gray-600 bg-opacity-50 overflow-y-auto h-full w-full hidden z-50">
-                <div class="relative top-20 mx-auto p-5 border w-96 shadow-lg rounded-md bg-white">
-                    <div class="mt-3 text-center">
-                        <h3 class="text-lg leading-6 font-medium text-gray-900">Acerca de Farmacias Chajarí</h3>
-                        <div class="mt-2 px-7 py-3">
-                            <p class="text-sm text-gray-500">
-                                Farmacias Chajarí es una herramienta desarrollada por <a href="https://maptiva.github.io/maptiva/" target="_blank" class="font-bold text-blue-600 hover:underline">Maptiva</a> para brindar a la comunidad un acceso rápido y sencillo a la información actualizada sobre las farmacias de la ciudad y sus turnos disponibles. Se recomienda confirmar siempre por teléfono antes de acudir.
-                            </p>
-                        </div>
-                        <div class="items-center px-4 py-3">
-                            <button id="closeModalButton" class="px-4 py-2 bg-blue-500 text-white text-base font-medium rounded-md w-full shadow-sm hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500">
-                                Cerrar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Contenedor del Mapa -->
-        <div class="map-wrapper flex-1 p-0 md:p-4">
-            <div id="map" class="shadow-md rounded-none md:rounded-lg"></div>
-        </div>
-    </div>
-
-    <!-- Info Modal -->
-    <div id="infoModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-        <div class="bg-white rounded-lg shadow-xl max-w-lg w-full flex flex-col max-h-[85vh]">
-            <!-- Modal Header -->
-            <div class="flex-shrink-0 p-6 border-b border-gray-200">
-                <div class="flex justify-between items-center">
-                    <h2 class="text-2xl font-bold">¿Cómo funciona el Portal?</h2>
-                    <button id="close-info-modal-x" class="text-gray-500 hover:text-gray-700 text-2xl font-bold">&times;</button>
-                </div>
-            </div>
-
-            <!-- Modal Body -->
-            <div class="overflow-y-auto p-6">
-                <h3 class="text-lg font-semibold">Horarios de Turno</h3>
-                <ul class="list-disc list-inside text-gray-700 space-y-1 mt-2">
-                    <li><strong>Farmacia de Turno:</strong> Atiende las 24 horas, desde las 8:00 AM de un día hasta las 8:00 AM del día siguiente.</li>
-                    <li><strong>Farmacia de Refuerzo:</strong> Brinda apoyo los días domingos y feriados, de 8:00 AM a 23:00 PM del mismo día.</li>
-                </ul>
-
-                <h3 class="text-lg font-semibold mt-4">Íconos del Mapa</h3>
-                <ul class="list-disc list-inside text-gray-700 space-y-1 mt-2">
-                    <li><span class="inline-block w-4 h-4 rounded-full bg-red-500 mr-2 align-middle"></span>Indica la <strong>Farmacia de Turno</strong> principal.</li>
-                    <li><span class="inline-block w-4 h-4 rounded-full bg-green-500 mr-2 align-middle"></span>Indica la <strong>Farmacia de Refuerzo</strong> activa.</li>
-                    <li><span class="inline-block w-4 h-4 rounded-full bg-blue-500 mr-2 align-middle"></span>Indica las demás farmacias.</li>
-                </ul>
-
-                <h3 class="text-lg font-semibold mt-4">Funcionalidades</h3>
-                <ul class="list-disc list-inside text-gray-700 space-y-1 mt-2">
-                    <li><strong>Llamar / WhatsApp:</strong> Haz clic en los botones para contactar directamente a la farmacia.</li>
-                    <li><strong>Cómo Llegar:</strong> Abrirá Google Maps con la ruta desde tu ubicación actual.</li>
-                </ul>
-
-                <h3 class="text-lg font-semibold mt-4">¡Instala la Aplicación!</h3>
-                <p class="text-gray-700 mt-2">Para un acceso más rápido, puedes añadir este portal a la pantalla de inicio de tu celular. Busca la opción "Añadir a pantalla de inicio" o "Instalar aplicación" en el menú de tu navegador.</p>
-
-                <h3 class="text-lg font-semibold mt-4">Colaboración</h3>
-                <p class="text-gray-700 mt-2">Este es un proyecto colaborativo. Si encuentras un error o tienes una sugerencia, puedes usar el "Formulario de Contacto" en el menú "Más Información".</p>
-            </div>
-
-            <!-- Modal Footer -->
-            <div class="flex-shrink-0 p-6 border-t border-gray-200 text-center">
-                <button id="close-info-modal" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-blue-500">Entendido</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- Modal del Calendario -->
-    <div id="calendar-modal" class="hidden fixed inset-0 bg-gray-800 bg-opacity-60 overflow-y-auto h-full w-full z-50 flex items-center justify-center p-4">
-        <div class="relative mx-auto p-4 md:p-5 border w-11/12 max-w-sm md:max-w-3xl shadow-lg rounded-md bg-white">
-            <!-- Cabecera del Modal -->
-            <div class="flex justify-between items-center pb-3 border-b border-gray-200">
-                <button id="prev-month" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Mes anterior">
-                    <i class="fas fa-chevron-left text-gray-600"></i>
-                </button>
-                <h2 id="calendar-month-year" class="text-lg md:text-xl font-bold text-gray-800 text-center"></h2>
-                <button id="next-month" class="p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Mes siguiente">
-                    <i class="fas fa-chevron-right text-gray-600"></i>
-                </button>
-                <button id="close-calendar-modal" class="absolute top-3 right-3 p-2 rounded-full hover:bg-gray-200 focus:outline-none" title="Cerrar">
-                    <i class="fas fa-times text-gray-600"></i>
-                </button>
-            </div>
-            <!-- Contenido del Modal (Calendario) -->
-            <div class="mt-3">
-                <!-- Encabezados para Móvil -->
-                <div class="grid grid-cols-7 gap-1 text-center font-bold text-xs mb-2 text-gray-500 md:hidden">
-                    <div>L</div><div>M</div><div>X</div><div>J</div><div>V</div><div>S</div><div>D</div>
-                </div>
-                <!-- Encabezados para Escritorio -->
-                <div class="hidden md:grid grid-cols-7 gap-2 text-center font-bold text-sm mb-2 text-gray-600">
-                    <div>Lunes</div><div>Martes</div><div>Miércoles</div><div>Jueves</div><div>Viernes</div><div>Sábado</div><div>Domingo</div>
-                </div>
-                <div id="calendar-grid" class="grid grid-cols-7 gap-1 md:gap-2">
-                    <!-- Los días del calendario se generarán aquí -->
-                </div>
-            </div>
-        </div>
-    </div>
-
-<script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-app.js";
-    import { getFirestore, collection, getDocs } from "https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore.js";
-
-    const firebaseConfig = {
-        apiKey: "AIzaSyC62b1ItiE0IzYKc8Y3tDIT5EXa0abUH0c",
-        authDomain: "farmacias-chajari.firebaseapp.com",
-        projectId: "farmacias-chajari",
-        storageBucket: "farmacias-chajari.appspot.com",
-        messagingSenderId: "480200517460",
-        appId: "1:480200517460:web:4cc22cd97a7b292e200ac1"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-
-    document.addEventListener('DOMContentLoaded', function() {
-        let allPharmacies = [];
-        let allShifts = [];
-        let currentDate = new Date();
-        const pharmacyList = document.getElementById('pharmacyList');
-        setFullScreenHeight();
-        const map = L.map('map', {minZoom: 13});
-        const markers = L.layerGroup().addTo(map);
-
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
-        }).addTo(map);
-
-        function setFullScreenHeight() {
-            const mainContainer = document.getElementById('main-container');
-            if (mainContainer) {
-                mainContainer.style.height = `${window.innerHeight}px`;
-            }
-        }
-
-        function getDutyInfo() {
-            const now = new Date();
-            const hour = now.getHours();
-            
-            let principalDate = new Date(now);
-            if (hour < 8) {
-                principalDate.setDate(principalDate.getDate() - 1);
-            }
-            const principalDateString = `${principalDate.getFullYear()}-${String(principalDate.getMonth() + 1).padStart(2, '0')}-${String(principalDate.getDate()).padStart(2, '0')}`;
-
-            const today = new Date();
-            const todayDateString = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-            
-            const isReinforcementActive = hour >= 8 && hour < 23;
-
-            return { principalDateString, todayDateString, isReinforcementActive };
-        }
-
-        async function cargarFarmacias() {
-            const { principalDateString, todayDateString, isReinforcementActive } = getDutyInfo();
-            try {
-                const querySnapshot = await getDocs(collection(db, "farmacias"));
-                allPharmacies = [];
-                allShifts = []; // Limpiar turnos antes de cargar
-                querySnapshot.forEach((doc) => {
-                    const farmacia = doc.data();
-                    farmacia.id = doc.id;
-                    farmacia.dutyType = null;
-
-                    if (farmacia.turnos && Array.isArray(farmacia.turnos)) {
-                        // Llenar la lista de todos los turnos para el calendario
-                        farmacia.turnos.forEach(turno => {
-                            allShifts.push({
-                                date: turno.fecha,
-                                name: farmacia.nombre,
-                                type: turno.tipo
-                            });
-                        });
-
-                        const turnoPrincipal = farmacia.turnos.find(t => t.fecha === principalDateString && t.tipo === 'principal');
-                        if (turnoPrincipal) {
-                            farmacia.dutyType = 'principal';
-                        }
-
-                        if (isReinforcementActive) {
-                            const turnoRefuerzo = farmacia.turnos.find(t => t.fecha === todayDateString && t.tipo === 'refuerzo');
-                            if (turnoRefuerzo) {
-                                if (!farmacia.dutyType) {
-                                   farmacia.dutyType = 'refuerzo';
-                                }
-                            }
-                        }
-                    }
-                    allPharmacies.push(farmacia);
-                });
-                renderPharmacies(allPharmacies);
-                
-                if (markers.getLayers().length > 0) {
-                    const featureGroup = L.featureGroup(markers.getLayers());
-                    map.fitBounds(featureGroup.getBounds().pad(0.1));
-                } else {
-                    map.setView([-30.7600, -57.9830], 14);
-                }
-
-            } catch (error) {
-                console.error("Error al cargar datos de Firestore:", error);
-                pharmacyList.innerHTML = '<p class="text-red-500">Error al cargar las farmacias.</p>';
-            }
-        }
-
-        function renderPharmacies(pharmacies) {
-            pharmacyList.innerHTML = '';
-            markers.clearLayers();
-            const dutyOrder = { 'principal': 2, 'refuerzo': 1, 'null': 0 };
-            pharmacies.sort((a, b) => (dutyOrder[b.dutyType] || 0) - (dutyOrder[a.dutyType] || 0));
-            updateDutyHeader(pharmacies.filter(p => p.dutyType));
-            pharmacies.forEach(pharmacy => {
-                if (pharmacy.coordenadas && typeof pharmacy.coordenadas.latitude === 'number') {
-                    createMarker(pharmacy);
-                    pharmacyList.appendChild(createPharmacyCard(pharmacy));
-                } else {
-                    console.warn('Omitiendo farmacia sin coordenadas válidas:', pharmacy.nombre);
-                }
-            });
-        }
-        
-        function updateDutyHeader(dutyPharmacies) {
-            const dutyHeader = document.getElementById('duty-header');
-            if (dutyPharmacies.length === 0) {
-                dutyHeader.innerHTML = '<p class="text-center text-gray-500">No hay farmacias de turno en este momento.</p>';
-                return;
-            }
-            let headerHtml = '';
-            const principal = dutyPharmacies.find(p => p.dutyType === 'principal');
-            const refuerzos = dutyPharmacies.filter(p => p.dutyType === 'refuerzo');
-            if(principal) {
-                headerHtml += '<div class="flex items-center mb-2"><div class="w-3 h-3 rounded-full bg-red-500 mr-2 animate-pulse"></div><span class="text-sm font-medium">Farmacia de Turno <span class="font-normal text-xs text-gray-600">(8:00 a 8:00 hs)</span></span></div>';
-            }
-            if(refuerzos.length > 0) {
-                headerHtml += '<div class="flex items-center mt-3 mb-2"><div class="w-3 h-3 rounded-full bg-green-500 mr-2"></div><span class="text-sm font-medium">Farmacia de Refuerzo <span class="font-normal text-xs text-gray-600">(8:00 a 23:00 hs)</span></span></div>';
-            }
-            dutyHeader.innerHTML = headerHtml;
-        }
-
-        function generarBotonesDeAccion(farmacia) {
-            let botonesHtml = '<div class="mt-2 flex items-center gap-2">';
-            if (farmacia.whatsapp) {
-                const whatsappNumber = farmacia.whatsapp.replace(/\s|-/g, '');
-                botonesHtml += `<a href="https://wa.me/${whatsappNumber}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-green-500 text-white rounded-md hover:bg-green-600 transition-colors" title="Enviar WhatsApp"><i class="fab fa-whatsapp accion-icono"></i></a>`;
-            } else {
-                botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="WhatsApp no disponible"><i class="fab fa-whatsapp accion-icono"></i></span>`;
-            }
-            if (farmacia.telefono) {
-                botonesHtml += `<a href="tel:${farmacia.telefono}" class="flex items-center justify-center w-8 h-8 bg-blue-500 text-white rounded-md hover:bg-blue-600 transition-colors" title="Llamar"><i class="fas fa-phone accion-icono"></i></a>`;
-            } else {
-                botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="Teléfono no disponible"><i class="fas fa-phone accion-icono"></i></span>`;
-            }
-            if (farmacia.coordenadas && farmacia.coordenadas.latitude && farmacia.coordenadas.longitude) {
-                botonesHtml += `<a href="https://www.google.com/maps/dir/?api=1&destination=${farmacia.coordenadas.latitude},${farmacia.coordenadas.longitude}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-red-500 text-white rounded-md hover:bg-red-600 transition-colors" title="Cómo llegar"><i class="fas fa-map-marker-alt accion-icono"></i></a>`;
-            } else {
-                 botonesHtml += `<span class="flex items-center justify-center w-8 h-8 bg-gray-300 text-gray-500 rounded-md cursor-not-allowed" title="Ubicación no disponible"><i class="fas fa-map-marker-alt accion-icono"></i></span>`;
-            }
-            if (farmacia.sitio_web) {
-                botonesHtml += `<a href="${farmacia.sitio_web}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-purple-500 text-white rounded-md hover:bg-purple-600 transition-colors" title="Sitio Web"><i class="fas fa-globe accion-icono"></i></a>`;
-            }
-            if (farmacia.instagram) {
-                botonesHtml += `<a href="${farmacia.instagram}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-gradient-to-r from-pink-500 to-yellow-500 text-white rounded-md hover:opacity-90 transition-opacity" title="Instagram"><i class="fab fa-instagram accion-icono"></i></a>`;
-            }
-            if (farmacia.facebook) {
-                botonesHtml += `<a href="${farmacia.facebook}" target="_blank" class="flex items-center justify-center w-8 h-8 bg-blue-800 text-white rounded-md hover:bg-blue-900 transition-colors" title="Facebook"><i class="fab fa-facebook accion-icono"></i></a>`;
-            }
-            botonesHtml += '</div>';
-            return botonesHtml;
-        }
-
-        function createMarker(pharmacy) {
-            const { latitude, longitude } = pharmacy.coordenadas;
-            const iconHtml = '<i class="fas fa-plus text-white text-xs absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2"></i>';
-            let icon;
-            if (pharmacy.dutyType === 'principal') {
-                icon = L.divIcon({ className: 'duty-icon', html: iconHtml, iconSize: [30, 30] });
-            } else if (pharmacy.dutyType === 'refuerzo') {
-                icon = L.divIcon({ className: 'reinforcement-icon', html: iconHtml, iconSize: [28, 28] });
-            } else {
-                icon = L.divIcon({ className: 'custom-icon', html: iconHtml, iconSize: [24, 24] });
-            }
-            const marker = L.marker([latitude, longitude], { icon }).addTo(markers);
-            let dutyText = '', titleColor = 'text-blue-500';
-            if (pharmacy.dutyType === 'principal') {
-                dutyText = '<div class="text-red-500 font-bold text-xs mt-1">DE TURNO</div>';
-                titleColor = 'text-red-500';
-            }
-            if (pharmacy.dutyType === 'refuerzo') {
-                dutyText = '<div class="text-green-600 font-bold text-xs mt-1">DE REFUERZO</div>';
-                titleColor = 'text-green-600';
-            }
-            marker.bindPopup(`
-                <div class="font-bold text-lg ${titleColor}">
-                    ${pharmacy.categoria ? `<span class="text-sm font-normal text-gray-500">${pharmacy.categoria}: </span>` : ''}
-                    ${pharmacy.nombre}
-                </div>
-                <div class="text-sm">${pharmacy.direccion || ''}</div>
-                <div class="text-sm"><i class="fas fa-clock text-blue-400 mr-1"></i>Horario: ${pharmacy.horario || '<span class="text-gray-500">No disponible</span>'}</div>
-                ${dutyText}
-                ${generarBotonesDeAccion(pharmacy)}
-            `);
-            marker.on('click', () => {
-                const card = document.getElementById(`pharmacy-${pharmacy.id}`);
-                if (card) {
-                    card.scrollIntoView({ behavior: 'smooth', block: 'center' });
-                    card.classList.add('bg-blue-100');
-                    setTimeout(() => card.classList.remove('bg-blue-100'), 1500);
-                }
-            });
-            return marker;
-        }
-
-        function createPharmacyCard(pharmacy) {
-            const card = document.createElement('div');
-            card.id = `pharmacy-${pharmacy.id}`;
-            let cardClass = 'pharmacy-card p-3 rounded-lg border border-gray-200 cursor-pointer transition-all';
-            let titleColor = 'text-blue-600';
-            let badgeHtml = '';
-            if (pharmacy.dutyType === 'principal') {
-                cardClass += ' on-duty';
-                titleColor = 'text-red-600';
-                badgeHtml = '<span class="ml-2 text-xs bg-red-100 text-red-600 px-2 py-1 rounded-full font-semibold">DE TURNO</span>';
-            } else if (pharmacy.dutyType === 'refuerzo') {
-                cardClass += ' on-reinforcement';
-                titleColor = 'text-green-600';
-                badgeHtml = '<span class="ml-2 text-xs bg-green-100 text-green-600 px-2 py-1 rounded-full font-semibold">DE REFUERZO</span>';
-            }
-            card.className = cardClass;
-            card.innerHTML = `
-                <div class="flex justify-between items-start">
-                    <div>
-                        <h3 class="font-bold text-lg ${titleColor}">
-                            ${pharmacy.categoria ? `<span class="text-sm font-normal text-gray-500">${pharmacy.categoria}: </span>` : ''}
-                            ${pharmacy.nombre}${badgeHtml}
-                        </h3>
-                        <p class="text-sm text-gray-600 mt-1"><i class="fas fa-map-marker-alt text-blue-400 mr-1"></i>${pharmacy.direccion || 'N/A'}</p>
-                        <p class="text-sm text-gray-600"><i class="fas fa-phone text-blue-400 mr-1"></i>${pharmacy.telefono || 'N/A'}</p>
-                        <p class="text-sm text-gray-600"><i class="fas fa-clock text-blue-400 mr-1"></i>Horario: ${pharmacy.horario || '<span class="text-gray-500">No disponible</span>'}</p>
-                        ${generarBotonesDeAccion(pharmacy)}
-                    </div>
-                </div>
-            `;
-            card.addEventListener('click', () => {
-                const { latitude, longitude } = pharmacy.coordenadas;
-                map.setView([latitude, longitude], 17);
-                markers.eachLayer(layer => {
-                    if (layer.getLatLng().lat === latitude && layer.getLatLng().lng === longitude) layer.openPopup();
-                });
-            });
-            return card;
-        }
-
-        document.getElementById('searchInput').addEventListener('input', e => {
-            const searchTerm = e.target.value.toLowerCase();
-            const filtered = allPharmacies.filter(p => 
-                (p.nombre && p.nombre.toLowerCase().includes(searchTerm)) ||
-                (p.direccion && p.direccion.toLowerCase().includes(searchTerm))
-            );
-            renderPharmacies(filtered);
-        });
-
-        const infoAccordionHeader = document.getElementById('infoAccordionHeader');
-        const infoAccordionContent = document.getElementById('infoAccordionContent');
-        const infoAccordionIcon = document.getElementById('infoAccordionIcon');
-        infoAccordionHeader.addEventListener('click', () => {
-            infoAccordionContent.classList.toggle('hidden');
-            infoAccordionIcon.classList.toggle('rotate-180');
-        });
-
-        const aboutButton = document.getElementById('aboutButton');
-        const mobileAboutButton = document.getElementById('mobileAboutButton');
-        const aboutModal = document.getElementById('aboutModal');
-        const closeModalButton = document.getElementById('closeModalButton');
-        aboutButton.addEventListener('click', () => aboutModal.classList.remove('hidden'));
-        closeModalButton.addEventListener('click', () => aboutModal.classList.add('hidden'));
-        aboutModal.addEventListener('click', (e) => { if (e.target === aboutModal) aboutModal.classList.add('hidden'); });
-
-        const sidebar = document.querySelector('.sidebar');
-        const mobileMenu = document.getElementById('mobileMenu');
-        const toggleSidebarButton = document.getElementById('toggleSidebar');
-        const closeMobileMenuButton = document.getElementById('closeMobileMenu');
-        function abrirMobileMenu() { mobileMenu.classList.remove('hidden'); mobileMenu.classList.add('is-open'); }
-        function cerrarMobileMenu() { mobileMenu.classList.add('hidden'); mobileMenu.classList.remove('is-open'); }
-        mobileAboutButton.addEventListener('click', () => { aboutModal.classList.remove('hidden'); cerrarMobileMenu(); });
-        closeMobileMenuButton.addEventListener('click', () => cerrarMobileMenu());
-        toggleSidebarButton.addEventListener('click', () => {
-            const isSidebarPanelClosed = sidebar.classList.contains('is-closed');
-            if (isSidebarPanelClosed) {
-                sidebar.classList.remove('is-closed');
-                setTimeout(() => map.invalidateSize(), 400);
-            } else {
-                if (mobileMenu.classList.contains('hidden')) { abrirMobileMenu(); } else { cerrarMobileMenu(); }
-            }
-        });
-
-        const infoModal = document.getElementById('infoModal');
-        const closeInfoModalButton = document.getElementById('close-info-modal');
-        const closeInfoModalXButton = document.getElementById('close-info-modal-x');
-        function showInfoModal() { infoModal.classList.remove('hidden'); }
-        function hideInfoModal() { infoModal.classList.add('hidden'); }
-        closeInfoModalButton.addEventListener('click', hideInfoModal);
-        closeInfoModalXButton.addEventListener('click', hideInfoModal);
-        infoModal.addEventListener('click', (e) => { if (e.target === infoModal) hideInfoModal(); });
-        document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !infoModal.classList.contains('hidden')) hideInfoModal(); });
-
-        const InfoControl = L.Control.extend({
-            onAdd: function(map) {
-                const container = L.DomUtil.create('div', 'leaflet-bar leaflet-control leaflet-control-custom leaflet-control-info');
-                container.innerHTML = '<button class="bg-blue-600 text-white w-10 h-10 rounded-full shadow-md hover:bg-blue-700 focus:outline-none flex items-center justify-center" title="Información"><i class="fas fa-info text-lg"></i></button>';
-                container.style.width = '40px'; container.style.height = '40px'; container.style.display = 'flex'; container.style.alignItems = 'center'; container.style.justifyContent = 'center'; container.style.cursor = 'pointer';
-                L.DomEvent.on(container, 'click', showInfoModal);
-                return container;
-            },
-            onRemove: function(map) {}
-        });
-        new InfoControl({ position: 'bottomleft' }).addTo(map);
-
-        // --- LÓGICA DEL CALENDARIO MODAL ---
-        function setupCalendarModal() {
-            const calendarModal = document.getElementById('calendar-modal');
-            const openBtn = document.getElementById('open-calendar-modal');
-            const closeBtn = document.getElementById('close-calendar-modal');
-            const prevMonthBtn = document.getElementById('prev-month');
-            const nextMonthBtn = document.getElementById('next-month');
-
-            openBtn.addEventListener('click', () => {
-                currentDate = new Date(); // Reset to current month on open
-                renderCalendar(currentDate);
-                calendarModal.classList.remove('hidden');
-            });
-
-            const closeModal = () => calendarModal.classList.add('hidden');
-            closeBtn.addEventListener('click', closeModal);
-            calendarModal.addEventListener('click', (e) => {
-                if (e.target.id === 'calendar-modal') closeModal();
-            });
-
-            prevMonthBtn.addEventListener('click', () => {
-                currentDate.setMonth(currentDate.getMonth() - 1);
-                renderCalendar(currentDate);
-            });
-
-            nextMonthBtn.addEventListener('click', () => {
-                currentDate.setMonth(currentDate.getMonth() + 1);
-                renderCalendar(currentDate);
-            });
-        }
-
-        function renderCalendar(date) {
-            const calendarGrid = document.getElementById('calendar-grid');
-            const monthYearTitle = document.getElementById('calendar-month-year');
-            calendarGrid.innerHTML = '';
-
-            const month = date.getMonth();
-            const year = date.getFullYear();
-
-            monthYearTitle.textContent = date.toLocaleDateString('es-AR', { month: 'long', year: 'numeric' }).replace(/^\w/, c => c.toUpperCase());
-
-            const firstDayOfMonth = new Date(year, month, 1);
-            const lastDayOfMonth = new Date(year, month + 1, 0);
-            const daysInMonth = lastDayOfMonth.getDate();
-            const startDayOfWeek = (firstDayOfMonth.getDay() + 6) % 7; // 0 = Lunes
-
-            for (let i = 0; i < startDayOfWeek; i++) {
-                calendarGrid.appendChild(document.createElement('div'));
-            }
-
-            for (let day = 1; day <= daysInMonth; day++) {
-                const dayCell = document.createElement('div');
-                dayCell.className = 'p-1 md:p-1.5 text-xs border border-gray-200 rounded-md flex flex-col h-24 md:h-28 overflow-hidden';
-
-                const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-                const shiftsForDay = allShifts.filter(s => s.date === dateString);
-
-                const dayNumber = document.createElement('span');
-                dayNumber.className = 'font-bold self-start mb-1';
-                dayNumber.textContent = day;
-                dayCell.appendChild(dayNumber);
-
-                if (shiftsForDay.length > 0) {
-                    const shiftsContainer = document.createElement('div');
-                    shiftsContainer.className = 'overflow-y-auto text-left';
-                    shiftsForDay.sort((a, b) => a.type === 'principal' ? -1 : 1).forEach(shift => {
-                        const shiftP = document.createElement('p');
-                        shiftP.textContent = shift.name;
-                        if (shift.type === 'principal') {
-                            shiftP.className = 'font-bold text-red-600 break-words';
-                        } else if (shift.type === 'refuerzo') {
-                            shiftP.className = 'font-semibold text-green-600 break-words';
-                        }
-                        shiftsContainer.appendChild(shiftP);
-                    });
-                    dayCell.appendChild(shiftsContainer);
-                }
-                
-                const today = new Date();
-                if (year === today.getFullYear() && month === today.getMonth() && day === today.getDate()) {
-                    dayCell.classList.add('bg-blue-50');
-                    dayNumber.classList.add('bg-blue-500', 'text-white', 'rounded-full', 'w-5', 'h-5', 'flex', 'items-center', 'justify-center');
-                }
-
-                calendarGrid.appendChild(dayCell);
-            }
-        }
-
-        setFullScreenHeight();
-        window.addEventListener('resize', setFullScreenHeight);
-
-        cargarFarmacias().then(() => {
-            setupCalendarModal(); // Setup calendar after data is loaded
-        });
+        cargarFarmacias();
     });
 
     if ('serviceWorker' in navigator) {
