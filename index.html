@@ -491,7 +491,10 @@
                 <div id="infoAccordionContent" class="hidden space-y-1 mt-1">
                     <button id="aboutButton" class="block w-full text-left py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors duration-200">
                         <i class="fas fa-info-circle w-5 mr-1"></i>Acerca de
-                    </button>                    
+                    </button>
+                    <button id="shareButton" class="block w-full text-left py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors duration-200">
+                        <i class="fas fa-share-alt w-5 mr-1"></i>Compartir
+                    </button>
                     <div class="pt-1">
                         <h4 class="font-medium text-gray-700 text-sm mb-1">Contacto:</h4>
                         <a href="mailto:maptiva.sig.app@gmail.com" class="block py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md">
@@ -521,6 +524,9 @@
                     <div class="space-y-1">
                         <button id="mobileAboutButton" class="block w-full text-left py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors duration-200">
                             <i class="fas fa-info-circle w-5 mr-1"></i>Acerca de
+                        </button>
+                        <button id="mobileShareButton" class="block w-full text-left py-2 px-2 text-sm text-gray-600 hover:bg-gray-200 rounded-md transition-colors duration-200">
+                            <i class="fas fa-share-alt w-5 mr-1"></i>Compartir
                         </button>
                         <div class="pt-1">
                             <h4 class="font-medium text-gray-700 text-sm mb-1">Contacto:</h4>
@@ -1207,6 +1213,30 @@
         cargarFarmacias().then(() => {
             setupCalendarModal(); // Setup calendar after data is loaded
         });
+
+        // Lógica para el botón Compartir
+        const shareButton = document.getElementById('shareButton');
+        const mobileShareButton = document.getElementById('mobileShareButton');
+
+        const shareFunction = () => {
+            if (navigator.share) {
+                navigator.share({
+                    title: 'Farmacias Chajarí',
+                    text: '¡Te comparto el portal de Farmacias de Turno de Chajarí! Es súper útil.',
+                    url: window.location.href
+                }).catch((error) => console.log('Error sharing', error));
+            } else {
+                navigator.clipboard.writeText(window.location.href).then(() => {
+                    alert('¡Enlace copiado al portapapeles!');
+                }).catch(err => {
+                    console.error('Error al copiar el enlace: ', err);
+                    alert('No se pudo copiar el enlace.');
+                });
+            }
+        };
+
+        shareButton.addEventListener('click', shareFunction);
+        mobileShareButton.addEventListener('click', shareFunction);
     });
 
     if ('serviceWorker' in navigator) {
