@@ -629,6 +629,7 @@
                     <div class="hidden md:flex items-center space-x-4 text-xs text-gray-500 mt-1">
                         <div class="flex items-center"><span class="w-2.5 h-2.5 bg-red-600 rounded-full mr-1.5"></span>TURNO</div>
                         <div class="flex items-center"><span class="w-2.5 h-2.5 bg-green-600 rounded-full mr-1.5"></span>REFUERZO</div>
+                        <button id="calendar-today-btn-desktop" class="ml-4 font-bold text-blue-600 border border-blue-600 px-2 py-0.5 rounded-md hover:bg-blue-50 transition-colors">HOY</button>
                     </div>
                                             <div class="w-full flex justify-between items-center mt-2 text-xs text-gray-600 md:hidden px-2">
                                                 <div class="flex items-center space-x-4">
@@ -1093,6 +1094,7 @@
             const prevMonthBtn = document.getElementById('prev-month');
             const nextMonthBtn = document.getElementById('next-month');
             const todayBtn = document.getElementById('calendar-today-btn');
+            const todayBtnDesktop = document.getElementById('calendar-today-btn-desktop'); // Botón HOY de escritorio
 
             const closeModal = () => calendarModal.classList.add('hidden');
 
@@ -1123,12 +1125,25 @@
                 renderCalendar(currentDate);
             });
 
-            todayBtn.addEventListener('click', () => {
-                const todayElement = calendarModal.querySelector('.calendar-today-item');
-                if (todayElement) {
-                    todayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            const goToToday = () => {
+                const today = new Date();
+                // Si el mes o año actual del calendario no es el de hoy, renderizar el mes actual
+                if (currentDate.getMonth() !== today.getMonth() || currentDate.getFullYear() !== today.getFullYear()) {
+                    currentDate = today;
+                    renderCalendar(currentDate);
                 }
-            });
+                
+                // Usar un pequeño delay para asegurar que el DOM se actualizó antes de hacer scroll
+                setTimeout(() => {
+                    const todayElement = calendarModal.querySelector('.calendar-today-item');
+                    if (todayElement) {
+                        todayElement.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                    }
+                }, 100); // 100ms de delay
+            };
+
+            todayBtn.addEventListener('click', goToToday);
+            todayBtnDesktop.addEventListener('click', goToToday);
         }
 
         function renderCalendar(date) {
